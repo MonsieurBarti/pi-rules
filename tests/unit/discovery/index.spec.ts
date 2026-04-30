@@ -115,3 +115,95 @@ describe("discover root errors", () => {
 		}
 	});
 });
+
+describe("discover stderr contract", () => {
+	function captureStderr(): { lines: string[]; restore: () => void } {
+		const lines: string[] = [];
+		const orig = process.stderr.write.bind(process.stderr);
+		// biome-ignore lint/suspicious/noExplicitAny: stderr spy
+		(process.stderr.write as any) = (chunk: string) => {
+			lines.push(chunk);
+			return true;
+		};
+		return {
+			lines,
+			restore: () => {
+				process.stderr.write = orig;
+			},
+		};
+	}
+
+	it("AC7a-e: full-line equality across mixed-fixture failures", async () => {
+		const root = path.join(cwd, ".pi", "rules");
+		await mkdir(root, { recursive: true });
+		await writeFile(path.join(root, "valid.md"), VALID_FM);
+		await writeFile(path.join(root, "miss-fm.md"), "body without delimiters\n");
+		await writeFile(path.join(root, "bad-yaml.md"), `---\ndescription: "unterm\n---\nbody\n`);
+		await writeFile(path.join(root, "no-desc.md"), `---\nglobs: ["a"]\n---\nbody\n`);
+		await writeFile(
+			path.join(root, "empty-globs.md"),
+			"---\ndescription: D\nglobs: []\n---\nbody\n",
+		);
+		await writeFile(
+			path.join(root, "wrong-globs.md"),
+			"---\ndescription: D\nglobs: [1, 2]\n---\nbody\n",
+		);
+
+		const spy = captureStderr();
+		try {
+			const rules = await discover(cwd);
+			expect(rules).toHaveLength(1);
+			expect(spy.lines).toContain("[pi-rules] skipped .pi/rules/miss-fm.md: missing frontmatter\n");
+			expect(spy.lines).toContain("[pi-rules] skipped .pi/rules/no-desc.md: missing description\n");
+			expect(spy.lines).toContain(
+				"[pi-rules] skipped .pi/rules/empty-globs.md: globs required when alwaysApply is not true\n",
+			);
+			expect(spy.lines).toContain(
+				"[pi-rules] skipped .pi/rules/wrong-globs.md: globs must be string[]\n",
+			);
+			expect(
+				spy.lines.some((l) =>
+					l.startsWith("[pi-rules] skipped .pi/rules/bad-yaml.md: invalid yaml: "),
+				),
+			).toBe(true);
+			expect(spy.lines).toHaveLength(5);
+		} finally {
+			spy.restore();
+		}
+	});
+
+	it("AC7f: broken symlink emits unreadable: ENOENT (POSIX only)", async () => {
+		if (process.platform === "win32") return;
+		const fs = await import("node:fs/promises");
+		await mkdir(path.join(cwd, ".pi", "rules"), { recursive: true });
+		await fs.symlink(
+			path.join(cwd, "nonexistent-target"),
+			path.join(cwd, ".pi", "rules", "broken.md"),
+		);
+
+		const spy = captureStderr();
+		try {
+			const rules = await discover(cwd);
+			expect(rules).toEqual([]);
+			expect(spy.lines).toEqual(["[pi-rules] skipped .pi/rules/broken.md: unreadable: ENOENT\n"]);
+		} finally {
+			spy.restore();
+		}
+	});
+
+	it("AC8: one valid + one invalid → 1 rule, 1 stderr line, no throw", async () => {
+		const root = path.join(cwd, ".pi", "rules");
+		await mkdir(root, { recursive: true });
+		await writeFile(path.join(root, "valid.md"), VALID_FM);
+		await writeFile(path.join(root, "no-desc.md"), `---\nglobs: ["a"]\n---\nbody\n`);
+
+		const spy = captureStderr();
+		try {
+			const rules = await discover(cwd);
+			expect(rules).toHaveLength(1);
+			expect(spy.lines).toHaveLength(1);
+		} finally {
+			spy.restore();
+		}
+	});
+});
