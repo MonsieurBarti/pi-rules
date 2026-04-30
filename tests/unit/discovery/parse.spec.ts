@@ -49,3 +49,50 @@ describe("parseRuleFile happy path", () => {
 		expect(result.body).toBe(body);
 	});
 });
+
+describe("parseRuleFile failures", () => {
+	it("AC7a: missing frontmatter", async () => {
+		const file = path.join(dir, "no-fm.md");
+		await writeFile(file, "body without delimiters\n");
+		const result = await parseRuleFile(file, "pi");
+		expect(isParseFailure(result)).toBe(true);
+		if (!isParseFailure(result)) return;
+		expect(result.reason).toBe("missing frontmatter");
+	});
+
+	it("AC7b: invalid yaml", async () => {
+		const file = path.join(dir, "bad-yaml.md");
+		await writeFile(file, `---\ndescription: "unterminated\n---\nbody\n`);
+		const result = await parseRuleFile(file, "pi");
+		expect(isParseFailure(result)).toBe(true);
+		if (!isParseFailure(result)) return;
+		expect(result.reason).toMatch(/^invalid yaml: /);
+	});
+
+	it("AC7c: missing description", async () => {
+		const file = path.join(dir, "no-desc.md");
+		await writeFile(file, `---\nglobs: ["a"]\n---\nbody\n`);
+		const result = await parseRuleFile(file, "pi");
+		expect(isParseFailure(result)).toBe(true);
+		if (!isParseFailure(result)) return;
+		expect(result.reason).toBe("missing description");
+	});
+
+	it("AC7d: empty globs with alwaysApply false", async () => {
+		const file = path.join(dir, "empty-globs.md");
+		await writeFile(file, "---\ndescription: D\nglobs: []\n---\nbody\n");
+		const result = await parseRuleFile(file, "pi");
+		expect(isParseFailure(result)).toBe(true);
+		if (!isParseFailure(result)) return;
+		expect(result.reason).toBe("globs required when alwaysApply is not true");
+	});
+
+	it("AC7e: globs wrong type", async () => {
+		const file = path.join(dir, "wrong-globs.md");
+		await writeFile(file, "---\ndescription: D\nglobs: [1, 2]\n---\nbody\n");
+		const result = await parseRuleFile(file, "pi");
+		expect(isParseFailure(result)).toBe(true);
+		if (!isParseFailure(result)) return;
+		expect(result.reason).toBe("globs must be string[]");
+	});
+});
