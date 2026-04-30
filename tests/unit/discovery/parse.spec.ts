@@ -39,4 +39,13 @@ describe("parseRuleFile happy path", () => {
 		expect(result.alwaysApply).toBe(true);
 		expect(result.globs).toEqual([]);
 	});
+
+	it("AC13: body preserved byte-for-byte modulo single leading newline", async () => {
+		const file = path.join(dir, "body.md");
+		const body = "First line.\n\n```ts\n---\ninside fence\n---\n```\n\nTrailing.\n";
+		await writeFile(file, `---\ndescription: B\nglobs: ["**"]\n---\n${body}`);
+		const result = await parseRuleFile(file, "pi");
+		if (isParseFailure(result)) throw new Error(`unexpected: ${result.reason}`);
+		expect(result.body).toBe(body);
+	});
 });
