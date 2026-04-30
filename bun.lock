@@ -4,6 +4,9 @@
   "workspaces": {
     "": {
       "name": "@the-forge-flow/pi-rules",
+      "dependencies": {
+        "yaml": "^2.6.0",
+      },
       "devDependencies": {
         "@biomejs/biome": "^1.9.4",
         "@commitlint/cli": "^19.0.0",
