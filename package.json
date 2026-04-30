@@ -1,0 +1,71 @@
+{
+	"name": "@the-forge-flow/pi-rules",
+	"version": "0.0.1",
+	"description": "PI extension that auto-loads path-scoped rule files from .pi/rules and .claude/rules",
+	"type": "module",
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"files": [
+		"dist",
+		"README.md",
+		"LICENSE"
+	],
+	"scripts": {
+		"clean": "rm -rf dist",
+		"prebuild": "rm -rf dist",
+		"build": "tsc -p tsconfig.build.json",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"test:coverage": "vitest run --coverage",
+		"lint": "biome lint .",
+		"lint:fix": "biome lint . --write",
+		"format": "biome format .",
+		"format:fix": "biome format . --write",
+		"check": "biome check .",
+		"check:fix": "biome check . --write",
+		"typecheck": "tsc --noEmit"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^1.9.4",
+		"@commitlint/cli": "^19.0.0",
+		"@commitlint/config-conventional": "^19.0.0",
+		"@types/node": "^22.0.0",
+		"@vitest/coverage-v8": "^2.1.0",
+		"lefthook": "^2.1.5",
+		"typescript": "^5.7.0",
+		"vitest": "^2.1.0"
+	},
+	"peerDependencies": {
+		"@mariozechner/pi-coding-agent": "*",
+		"@mariozechner/pi-ai": "*",
+		"@mariozechner/pi-tui": "*"
+	},
+	"engines": {
+		"node": ">=20.0.0"
+	},
+	"keywords": [
+		"pi-package",
+		"pi",
+		"extension",
+		"rules",
+		"prompt",
+		"claude-code"
+	],
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/MonsieurBarti/pi-rules.git"
+	},
+	"bugs": {
+		"url": "https://github.com/MonsieurBarti/pi-rules/issues"
+	},
+	"homepage": "https://github.com/MonsieurBarti/pi-rules#readme",
+	"publishConfig": {
+		"access": "public"
+	},
+	"pi": {
+		"extensions": [
+			"./dist/index.js"
+		]
+	}
+}

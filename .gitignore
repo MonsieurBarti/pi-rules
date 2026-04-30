@@ -1,0 +1,14 @@
+node_modules
+dist
+.pi/
+.worktrees/
+coverage
+docs/superpowers/
+docs/plans/
+.claude/
+AGENTS.md
+CLAUDE.md
+.hippo/
+.tff-cc
+.tff-project-id
+build/
