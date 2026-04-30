@@ -421,3 +421,75 @@ describe("piRulesExtension — tool_result", () => {
 		expect(injectionLog).toHaveLength(2);
 	});
 });
+
+describe("piRulesExtension — integration smoke (AC12)", () => {
+	let dir: string;
+	beforeEach(() => {
+		clearInjectionLog();
+		dir = mkdtempSync(path.join(os.tmpdir(), "pi-rules-s04-int-"));
+		mkdirSync(path.join(dir, ".pi", "rules"), { recursive: true });
+		mkdirSync(path.join(dir, ".claude", "rules"), { recursive: true });
+		writeFileSync(
+			path.join(dir, ".pi", "rules", "pi-rule.md"),
+			'---\ndescription: pi\nglobs: ["src/**"]\n---\nPI_BODY',
+		);
+		writeFileSync(
+			path.join(dir, ".pi", "rules", "always.md"),
+			"---\ndescription: a\nalwaysApply: true\n---\nALWAYS_BODY",
+		);
+		writeFileSync(
+			path.join(dir, ".claude", "rules", "claude-rule.md"),
+			'---\ndescription: cl\nglobs: ["docs/**"]\n---\nCLAUDE_BODY',
+		);
+	});
+	afterEach(() => {
+		rmSync(dir, { recursive: true, force: true });
+		clearInjectionLog();
+	});
+
+	function readResult(
+		input: Record<string, unknown>,
+		opts: Partial<{ toolName: string; toolCallId: string }> = {},
+	) {
+		return {
+			type: "tool_result" as const,
+			toolName: opts.toolName ?? "read",
+			toolCallId: opts.toolCallId ?? "tc-1",
+			input,
+			content: [{ type: "text", text: "ORIG" }],
+			isError: false,
+			details: undefined,
+		};
+	}
+
+	it("AC12: real discover → compileMatcher → three tool_results produces expected injection log", async () => {
+		const fp = makeFakePi();
+		piRulesExtension(fp as any);
+		await fp.fire("session_start", {}, { cwd: dir });
+
+		// Event 1: read src/a.ts → pi-rule + always inject (length 2)
+		await fp.fire("tool_result", readResult({ path: "src/a.ts" }), { cwd: dir });
+		// Event 2: edit docs/a.md → claude-rule injects (always already deduped)
+		await fp.fire("tool_result", readResult({ path: "docs/a.md" }, { toolName: "edit" }), {
+			cwd: dir,
+		});
+		// Event 3: write any.ts → no rule matches (always already deduped, others don't match)
+		await fp.fire("tool_result", readResult({ path: "any.ts" }, { toolName: "write" }), {
+			cwd: dir,
+		});
+
+		const { realpath } = await import("node:fs/promises");
+		const piRuleId = await realpath(path.join(dir, ".pi", "rules", "pi-rule.md"));
+		const alwaysId = await realpath(path.join(dir, ".pi", "rules", "always.md"));
+		const claudeId = await realpath(path.join(dir, ".claude", "rules", "claude-rule.md"));
+
+		expect(injectionLog).toHaveLength(3);
+		expect(injectionLog).toEqual(
+			expect.arrayContaining([
+				{ path: "src/a.ts", ruleId: piRuleId },
+				{ path: "src/a.ts", ruleId: alwaysId },
+				{ path: "docs/a.md", ruleId: claudeId },
+			]),
+		);
+	});
+});
