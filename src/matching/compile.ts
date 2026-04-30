@@ -13,7 +13,7 @@ export function compileRule(rule: Rule): (rel: string) => boolean {
 			survivors.push(g);
 		} catch {
 			process.stderr.write(
-				`[pi-rules] invalid glob in ${rule.sourcePath}: ${JSON.stringify(g)} -- never matches\n`,
+				`[pi-rules] invalid glob in ${JSON.stringify(rule.sourcePath)}: ${JSON.stringify(g)} -- never matches\n`,
 			);
 		}
 	}

@@ -69,14 +69,14 @@ describe("compileRule — malformed globs", () => {
 		const sourcePath = "/abs/.pi/rules/bad.md";
 		const test = compileRule(baseRule({ sourcePath, globs: ["!("] }));
 		expect(test("anything")).toBe(false);
-		expect(stderr).toBe(`[pi-rules] invalid glob in ${sourcePath}: "!(" -- never matches\n`);
+		expect(stderr).toBe(`[pi-rules] invalid glob in "${sourcePath}": "!(" -- never matches\n`);
 	});
 
 	it("AC3c: one bad glob does not poison other globs", () => {
 		const sourcePath = "/abs/.pi/rules/mixed.md";
 		const test = compileRule(baseRule({ sourcePath, globs: ["src/**", "!("] }));
 		expect(test("src/a.ts")).toBe(true);
-		expect(stderr).toBe(`[pi-rules] invalid glob in ${sourcePath}: "!(" -- never matches\n`);
+		expect(stderr).toBe(`[pi-rules] invalid glob in "${sourcePath}": "!(" -- never matches\n`);
 	});
 
 	it("AC3d: literal-pattern globs (e.g. [unclosed) emit no warning", () => {
@@ -89,6 +89,17 @@ describe("compileRule — malformed globs", () => {
 		const sourcePath = "/abs/.pi/rules/empty.md";
 		const test = compileRule(baseRule({ sourcePath, globs: [""] }));
 		expect(test("anything")).toBe(false);
-		expect(stderr).toBe(`[pi-rules] invalid glob in ${sourcePath}: "" -- never matches\n`);
+		expect(stderr).toBe(`[pi-rules] invalid glob in "${sourcePath}": "" -- never matches\n`);
+	});
+
+	it("AC3e: malicious sourcePath with newline/escape chars cannot forge log lines", () => {
+		const sourcePath = "/abs/.pi/rules/foo\n[pi-rules] FORGED: bar.md";
+		const test = compileRule(baseRule({ sourcePath, globs: ["!("] }));
+		expect(test("anything")).toBe(false);
+		// Embedded newline and escapes are JSON-quoted, so the warning remains a single line.
+		expect(stderr.split("\n").filter((l) => l.length > 0)).toHaveLength(1);
+		expect(stderr).toBe(
+			`[pi-rules] invalid glob in ${JSON.stringify(sourcePath)}: "!(" -- never matches\n`,
+		);
 	});
 });
