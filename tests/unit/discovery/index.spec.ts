@@ -42,4 +42,44 @@ describe("discover happy path", () => {
 		const ids = new Set(rules.map((r) => r.id));
 		expect(ids.size).toBe(2);
 	});
+
+	it("AC3: claude->pi symlink yields one rule, source pi", async () => {
+		if (process.platform === "win32") return;
+		const fs = await import("node:fs/promises");
+		await mkdir(path.join(cwd, ".pi", "rules"), { recursive: true });
+		await mkdir(path.join(cwd, ".claude", "rules"), { recursive: true });
+		const target = path.join(cwd, ".pi", "rules", "x.md");
+		await writeFile(target, VALID_FM);
+		await fs.symlink(target, path.join(cwd, ".claude", "rules", "x.md"));
+
+		const rules = await discover(cwd);
+		expect(rules).toHaveLength(1);
+		expect(rules[0]?.source).toBe("pi");
+		expect(rules[0]?.sourcePath).toBe(target);
+	});
+
+	it("AC3 reverse: pi->claude symlink still yields source pi (pi walked first)", async () => {
+		if (process.platform === "win32") return;
+		const fs = await import("node:fs/promises");
+		await mkdir(path.join(cwd, ".pi", "rules"), { recursive: true });
+		await mkdir(path.join(cwd, ".claude", "rules"), { recursive: true });
+		const target = path.join(cwd, ".claude", "rules", "x.md");
+		await writeFile(target, VALID_FM);
+		await fs.symlink(target, path.join(cwd, ".pi", "rules", "x.md"));
+
+		const rules = await discover(cwd);
+		expect(rules).toHaveLength(1);
+		expect(rules[0]?.source).toBe("pi");
+		expect(rules[0]?.sourcePath).toBe(path.join(cwd, ".pi", "rules", "x.md"));
+	});
+
+	it("AC9: Rule.id equals realpath(sourcePath) for every rule", async () => {
+		const fs = await import("node:fs/promises");
+		await mkdir(path.join(cwd, ".pi", "rules"), { recursive: true });
+		await writeFile(path.join(cwd, ".pi", "rules", "a.md"), VALID_FM);
+		const rules = await discover(cwd);
+		for (const r of rules) {
+			expect(r.id).toBe(await fs.realpath(r.sourcePath));
+		}
+	});
 });
