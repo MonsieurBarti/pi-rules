@@ -30,4 +30,13 @@ describe("parseRuleFile happy path", () => {
 		expect(result.sourcePath).toBe(file);
 		expect(result.body).toBe("Use strict mode.\n");
 	});
+
+	it("AC6: alwaysApply true with no globs defaults to []", async () => {
+		const file = path.join(dir, "always.md");
+		await writeFile(file, "---\ndescription: Always\nalwaysApply: true\n---\nBody.\n");
+		const result = await parseRuleFile(file, "pi");
+		if (isParseFailure(result)) throw new Error(`unexpected: ${result.reason}`);
+		expect(result.alwaysApply).toBe(true);
+		expect(result.globs).toEqual([]);
+	});
 });
