@@ -30,6 +30,7 @@
 		"@commitlint/cli": "^19.0.0",
 		"@commitlint/config-conventional": "^19.0.0",
 		"@types/node": "^22.0.0",
+		"@types/picomatch": "^4.0.0",
 		"@vitest/coverage-v8": "^2.1.0",
 		"lefthook": "^2.1.5",
 		"typescript": "^5.7.0",
@@ -69,6 +70,7 @@
 		]
 	},
 	"dependencies": {
+		"picomatch": "^4.0.0",
 		"yaml": "^2.6.0"
 	}
 }
