@@ -8,6 +8,7 @@ import {
 	injectionLog,
 	recordInjection,
 } from "../../src/testing/injection-log.js";
+import { makeFakePi } from "../_helpers/fake-pi.js";
 import harness from "../e2e/harness.js";
 
 // NOTE on import paths: this spec lives at tests/unit/e2e-harness.spec.ts.
@@ -15,25 +16,6 @@ import harness from "../e2e/harness.js";
 // is `../e2e/harness.js` (one `..` to escape `unit/`, then `e2e/harness.js`
 // — the `.js` suffix is rewritten to `.ts` by jiti at runtime). The
 // `src/...` imports use `../../src/...` (two `..` to escape `tests/unit/`).
-
-type Handler = (e: unknown, ctx: unknown) => unknown | Promise<unknown>;
-
-function makeFakePi() {
-	const handlers = new Map<string, Handler[]>();
-	return {
-		on(name: string, h: Handler) {
-			const list = handlers.get(name) ?? [];
-			list.push(h);
-			handlers.set(name, list);
-		},
-		async fire(name: string, e: unknown, ctx: unknown): Promise<unknown> {
-			const list = handlers.get(name) ?? [];
-			let last: unknown = undefined;
-			for (const h of list) last = await h(e, ctx);
-			return last;
-		},
-	};
-}
 
 describe("e2e harness — side-channel write contract (AC2b)", () => {
 	let tmp: string;
