@@ -83,3 +83,35 @@ describe("discover happy path", () => {
 		}
 	});
 });
+
+describe("discover root errors", () => {
+	it("AC4: missing both roots returns [] with no stderr", async () => {
+		const errors: string[] = [];
+		const orig = process.stderr.write.bind(process.stderr);
+		// biome-ignore lint/suspicious/noExplicitAny: stderr spy
+		(process.stderr.write as any) = (chunk: string) => {
+			errors.push(chunk);
+			return true;
+		};
+		try {
+			const rules = await discover(cwd);
+			expect(rules).toEqual([]);
+			expect(errors).toEqual([]);
+		} finally {
+			process.stderr.write = orig;
+		}
+	});
+
+	it("AC11: root EACCES on .pi/rules rejects (POSIX only)", async () => {
+		if (process.platform === "win32") return;
+		const fs = await import("node:fs/promises");
+		const root = path.join(cwd, ".pi", "rules");
+		await mkdir(root, { recursive: true });
+		await fs.chmod(root, 0o000);
+		try {
+			await expect(discover(cwd)).rejects.toThrow();
+		} finally {
+			await fs.chmod(root, 0o755);
+		}
+	});
+});
