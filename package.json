@@ -1,6 +1,6 @@
 {
 	"name": "@the-forge-flow/pi-rules",
-	"version": "0.0.2",
+	"version": "0.0.3",
 	"description": "PI extension that auto-loads path-scoped rule files from .pi/rules and .claude/rules",
 	"type": "module",
 	"main": "dist/index.js",
