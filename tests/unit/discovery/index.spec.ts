@@ -153,7 +153,7 @@ describe("discover stderr contract", () => {
 		try {
 			const rules = await discover(cwd);
 			expect(rules).toHaveLength(1);
-			expect(spy.lines).toContain("[pi-rules] skipped .pi/rules/miss-fm.md: missing frontmatter\n");
+			expect(spy.lines.some((l) => l.includes("miss-fm.md"))).toBe(false);
 			expect(spy.lines).toContain("[pi-rules] skipped .pi/rules/no-desc.md: missing description\n");
 			expect(spy.lines).toContain(
 				"[pi-rules] skipped .pi/rules/empty-globs.md: globs required when alwaysApply is not true\n",
@@ -166,7 +166,7 @@ describe("discover stderr contract", () => {
 					l.startsWith("[pi-rules] skipped .pi/rules/bad-yaml.md: invalid yaml: "),
 				),
 			).toBe(true);
-			expect(spy.lines).toHaveLength(5);
+			expect(spy.lines).toHaveLength(4);
 		} finally {
 			spy.restore();
 		}

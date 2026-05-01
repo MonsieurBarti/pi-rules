@@ -40,7 +40,9 @@ export async function discover(cwd: string): Promise<Rule[]> {
 
 			const result = await parseRuleFile(absPath, source);
 			if (isParseFailure(result)) {
-				warn(cwd, absPath, result.reason);
+				if (result.reason !== "missing frontmatter") {
+					warn(cwd, absPath, result.reason);
+				}
 				continue;
 			}
 			out.push({ ...result, id });
