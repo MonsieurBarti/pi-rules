@@ -28,7 +28,7 @@ describe("S02 → S03 integration", () => {
 			"---\ndescription: always rule\nalwaysApply: true\n---\nbody-always\n",
 		);
 
-		const rules = await discover(cwd);
+		const { rules } = await discover(cwd);
 		const m = compileMatcher(rules);
 
 		const srcRule = rules.find((r) => r.description === "src rule");

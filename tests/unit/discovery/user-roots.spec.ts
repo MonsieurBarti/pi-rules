@@ -25,7 +25,7 @@ describe("user-root discovery (AC1)", () => {
 		await writeFile(path.join(home, ".pi", "rules", "u1.md"), VALID_FM);
 		await writeFile(path.join(home, ".claude", "rules", "u2.md"), VALID_FM);
 
-		const rules = await discover(cwd, { home });
+		const { rules } = await discover(cwd, { home });
 		expect(rules).toHaveLength(2);
 		expect(rules.map((r) => r.sourcePath).sort()).toEqual([
 			path.join(home, ".claude", "rules", "u2.md"),
@@ -39,7 +39,7 @@ describe("user-root discovery (AC1)", () => {
 		await writeFile(path.join(home, ".pi", "rules", "u.md"), VALID_FM);
 		await writeFile(path.join(cwd, ".pi", "rules", "p.md"), VALID_FM);
 
-		const rules = await discover(cwd, { home });
+		const { rules } = await discover(cwd, { home });
 		expect(rules).toHaveLength(2);
 		expect(rules[0]?.sourcePath).toBe(path.join(home, ".pi", "rules", "u.md"));
 		expect(rules[1]?.sourcePath).toBe(path.join(cwd, ".pi", "rules", "p.md"));
@@ -50,7 +50,7 @@ describe("user-root discovery (AC1)", () => {
 		await mkdir(path.join(cwd, ".pi", "rules"), { recursive: true });
 		await writeFile(path.join(cwd, ".pi", "rules", "p.md"), VALID_FM);
 
-		const rules = await discover(cwd, { home: ghostHome });
+		const { rules } = await discover(cwd, { home: ghostHome });
 		expect(rules).toHaveLength(1);
 		expect(rules[0]?.sourcePath).toBe(path.join(cwd, ".pi", "rules", "p.md"));
 	});
@@ -59,7 +59,7 @@ describe("user-root discovery (AC1)", () => {
 		await mkdir(path.join(home, ".pi", "rules"), { recursive: true });
 		await writeFile(path.join(home, ".pi", "rules", "always.md"), ALWAYS_FM);
 
-		const rules = await discover(cwd, { home });
+		const { rules } = await discover(cwd, { home });
 		expect(rules).toHaveLength(1);
 		expect(rules[0]?.alwaysApply).toBe(true);
 	});
@@ -70,7 +70,7 @@ describe("user-root discovery (AC1)", () => {
 		await mkdir(path.join(cwd, ".pi", "rules"), { recursive: true });
 		await writeFile(path.join(cwd, ".pi", "rules", "p.md"), VALID_FM);
 
-		const rules = await discover(cwd, { home: "" });
+		const { rules } = await discover(cwd, { home: "" });
 		expect(rules).toHaveLength(1);
 		expect(rules[0]?.sourcePath).toBe(path.join(cwd, ".pi", "rules", "p.md"));
 	});
@@ -78,7 +78,7 @@ describe("user-root discovery (AC1)", () => {
 	it("opts.home === undefined falls through to os.homedir()", async () => {
 		// Smoke: omit opts entirely; behavior matches single-arg call. Asserts no throw and
 		// an array result. We do NOT assert contents (developer's real ~/.pi/rules may exist).
-		const rules = await discover(cwd);
+		const { rules } = await discover(cwd);
 		expect(Array.isArray(rules)).toBe(true);
 	});
 
@@ -87,7 +87,7 @@ describe("user-root discovery (AC1)", () => {
 		await mkdir(path.join(home, ".pi", "rules"), { recursive: true });
 		await writeFile(path.join(home, ".pi", "rules", "x.md"), VALID_FM);
 
-		const rules = await discover(home, { home });
+		const { rules } = await discover(home, { home });
 		expect(rules).toHaveLength(1);
 		expect(rules[0]?.sourcePath).toBe(path.join(home, ".pi", "rules", "x.md"));
 	});
@@ -104,7 +104,7 @@ describe("user-root discovery (AC1)", () => {
 			return true;
 		};
 		try {
-			const rules = await discover(cwd, { home });
+			const { rules } = await discover(cwd, { home });
 			expect(rules).toEqual([]);
 			expect(errors).toEqual([]);
 		} finally {
@@ -123,7 +123,7 @@ describe("user/project realpath dedup", () => {
 		await writeFile(target, VALID_FM);
 		await fs.symlink(target, path.join(cwd, ".pi", "rules", "shared.md"));
 
-		const rules = await discover(cwd, { home });
+		const { rules } = await discover(cwd, { home });
 		expect(rules).toHaveLength(1);
 		expect(rules[0]?.sourcePath).toBe(target);
 		expect(rules[0]?.source).toBe("pi");
@@ -138,7 +138,7 @@ describe("user/project realpath dedup", () => {
 		await writeFile(target, VALID_FM);
 		await fs.symlink(target, path.join(home, ".pi", "rules", "shared.md"));
 
-		const rules = await discover(cwd, { home });
+		const { rules } = await discover(cwd, { home });
 		expect(rules).toHaveLength(1);
 		// User iterated first, so the symlink at ~/.pi/rules wins reported sourcePath.
 		expect(rules[0]?.sourcePath).toBe(path.join(home, ".pi", "rules", "shared.md"));
@@ -153,7 +153,7 @@ describe("user/project realpath dedup", () => {
 		await writeFile(path.join(home, ".pi", "rules", "x.md"), VALID_FM);
 		await writeFile(path.join(cwd, ".pi", "rules", "x.md"), VALID_FM);
 
-		const rules = await discover(cwd, { home });
+		const { rules } = await discover(cwd, { home });
 		expect(rules).toHaveLength(2);
 		const ids = new Set(rules.map((r) => r.id));
 		expect(ids.size).toBe(2);

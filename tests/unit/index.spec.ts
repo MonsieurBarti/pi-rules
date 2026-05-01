@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import piRulesExtension from "../../src/index.js";
+import piRulesExtension, { makeExtension } from "../../src/index.js";
 import { clearInjectionLog, injectionLog } from "../../src/testing/injection-log.js";
 import { makeFakePi } from "../_helpers/fake-pi.js";
 
@@ -467,5 +467,220 @@ describe("piRulesExtension — integration smoke (AC12)", () => {
 				{ path: "docs/a.md", ruleId: claudeId },
 			]),
 		);
+	});
+});
+
+type FakeRuntimeWatcher = { emitChange: () => void; close: () => void; closed: boolean };
+function makeFakeWatchFactory() {
+	const created: FakeRuntimeWatcher[] = [];
+	// biome-ignore lint/suspicious/noExplicitAny: test fake
+	const factory: any = (_p: string, _opts: unknown, listener?: any) => {
+		const lst = typeof _opts === "function" ? _opts : listener;
+		const w: FakeRuntimeWatcher & {
+			on: (n: string, h: (...a: unknown[]) => void) => unknown;
+		} = {
+			closed: false,
+			close() {
+				this.closed = true;
+			},
+			on() {
+				return this;
+			},
+			emitChange() {
+				lst?.("change", "r.md");
+			},
+		};
+		created.push(w);
+		return w;
+	};
+	return { factory, created };
+}
+
+describe("runtime stderr parity (M01-S03)", () => {
+	it("session_start: emits warn lines for parse_error, silent for skipped_no_frontmatter", async () => {
+		const tmp = mkdtempSync(path.join(os.tmpdir(), "pi-rules-rt-"));
+		const dir = path.join(tmp, ".pi/rules");
+		mkdirSync(dir, { recursive: true });
+		writeFileSync(path.join(dir, "no-desc.md"), '---\nglobs: ["**/*"]\n---\n');
+		writeFileSync(path.join(dir, "plain.md"), "no frontmatter\n");
+
+		const lines: string[] = [];
+		const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation((chunk: unknown) => {
+			lines.push(String(chunk));
+			return true;
+		});
+		try {
+			const fp = makeFakePi();
+			const { factory } = makeFakeWatchFactory();
+			// biome-ignore lint/suspicious/noExplicitAny: test fake
+			makeExtension({ watchFactory: factory, debounceMs: 10 })(fp as any);
+			await fp.fire("session_start", { type: "session_start", reason: "startup" }, { cwd: tmp });
+		} finally {
+			stderrSpy.mockRestore();
+		}
+		const piRulesLines = lines.filter((l) => l.startsWith("[pi-rules] skipped"));
+		expect(piRulesLines).toEqual([
+			"[pi-rules] skipped .pi/rules/no-desc.md: missing description\n",
+		]);
+		rmSync(tmp, { recursive: true, force: true });
+	});
+
+	it("session_start: emits unreadable: <code> when realpath fails (broken symlink)", async () => {
+		if (process.platform === "win32") return;
+		const tmp = mkdtempSync(path.join(os.tmpdir(), "pi-rules-rt-"));
+		const dir = path.join(tmp, ".pi/rules");
+		mkdirSync(dir, { recursive: true });
+		const fs = await import("node:fs/promises");
+		await fs.symlink(path.join(tmp, "missing-target"), path.join(dir, "ghost.md"));
+		const lines: string[] = [];
+		const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation((chunk: unknown) => {
+			lines.push(String(chunk));
+			return true;
+		});
+		try {
+			const fp = makeFakePi();
+			const { factory } = makeFakeWatchFactory();
+			// biome-ignore lint/suspicious/noExplicitAny: test fake
+			makeExtension({ watchFactory: factory, debounceMs: 10 })(fp as any);
+			await fp.fire("session_start", { type: "session_start", reason: "startup" }, { cwd: tmp });
+		} finally {
+			stderrSpy.mockRestore();
+		}
+		expect(lines.filter((l) => l.startsWith("[pi-rules] skipped"))).toEqual([
+			"[pi-rules] skipped .pi/rules/ghost.md: unreadable: ENOENT\n",
+		]);
+		rmSync(tmp, { recursive: true, force: true });
+	});
+
+	it("session_start: emits 'symlink escape: <target>' for symlink resolving outside rule roots", async () => {
+		if (process.platform === "win32") return;
+		const tmp = mkdtempSync(path.join(os.tmpdir(), "pi-rules-rt-"));
+		const dir = path.join(tmp, ".pi/rules");
+		mkdirSync(dir, { recursive: true });
+		const fs = await import("node:fs/promises");
+		const outsideTarget = path.join(tmp, "outside.md");
+		writeFileSync(outsideTarget, '---\ndescription: x\nglobs: ["**/*"]\n---\n');
+		await fs.symlink(outsideTarget, path.join(dir, "escape.md"));
+		const realTarget = await fs.realpath(outsideTarget);
+		const lines: string[] = [];
+		const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation((chunk: unknown) => {
+			lines.push(String(chunk));
+			return true;
+		});
+		try {
+			const fp = makeFakePi();
+			const { factory } = makeFakeWatchFactory();
+			// biome-ignore lint/suspicious/noExplicitAny: test fake
+			makeExtension({ watchFactory: factory, debounceMs: 10 })(fp as any);
+			await fp.fire("session_start", { type: "session_start", reason: "startup" }, { cwd: tmp });
+		} finally {
+			stderrSpy.mockRestore();
+		}
+		expect(lines.filter((l) => l.startsWith("[pi-rules] skipped"))).toEqual([
+			`[pi-rules] skipped .pi/rules/escape.md: symlink escape: ${realTarget}\n`,
+		]);
+		rmSync(tmp, { recursive: true, force: true });
+	});
+
+	it("scheduleReload (mid-session): re-emits warn lines after watcher fires", async () => {
+		const tmp = mkdtempSync(path.join(os.tmpdir(), "pi-rules-rt-"));
+		const dir = path.join(tmp, ".pi/rules");
+		mkdirSync(dir, { recursive: true });
+		writeFileSync(path.join(dir, "good.md"), '---\ndescription: g\nglobs: ["**/*"]\n---\n');
+		const fp = makeFakePi();
+		const { factory, created } = makeFakeWatchFactory();
+		// biome-ignore lint/suspicious/noExplicitAny: test fake
+		makeExtension({ watchFactory: factory, debounceMs: 10 })(fp as any);
+		await fp.fire("session_start", { type: "session_start", reason: "startup" }, { cwd: tmp });
+
+		writeFileSync(path.join(dir, "bad.md"), '---\nglobs: ["**/*"]\n---\n');
+		const lines: string[] = [];
+		const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation((chunk: unknown) => {
+			lines.push(String(chunk));
+			return true;
+		});
+		try {
+			created[0]?.emitChange();
+			const deadline = Date.now() + 1000;
+			while (Date.now() < deadline) {
+				if (lines.some((l) => l.includes("bad.md: missing description"))) break;
+				await new Promise((r) => setTimeout(r, 5));
+			}
+		} finally {
+			stderrSpy.mockRestore();
+		}
+		expect(lines.filter((l) => l.startsWith("[pi-rules] skipped"))).toEqual([
+			"[pi-rules] skipped .pi/rules/bad.md: missing description\n",
+		]);
+		rmSync(tmp, { recursive: true, force: true });
+	});
+});
+
+describe("pi-rules slash command (M01-S03)", () => {
+	it("registers exactly one command named pi-rules with description mentioning doctor", () => {
+		const fp = makeFakePi();
+		const { factory } = makeFakeWatchFactory();
+		// biome-ignore lint/suspicious/noExplicitAny: test fake
+		makeExtension({ watchFactory: factory })(fp as any);
+		const reg = fp.__registeredCommands.filter((c) => c.name === "pi-rules");
+		expect(reg).toHaveLength(1);
+		// biome-ignore lint/suspicious/noExplicitAny: options is unknown in fake
+		expect((reg[0]?.options as any).description).toMatch(/doctor/i);
+	});
+
+	it("getArgumentCompletions returns doctor for empty/partial prefix", () => {
+		const fp = makeFakePi();
+		const { factory } = makeFakeWatchFactory();
+		// biome-ignore lint/suspicious/noExplicitAny: test fake
+		makeExtension({ watchFactory: factory })(fp as any);
+		// biome-ignore lint/suspicious/noExplicitAny: options is unknown
+		const opts = fp.__registeredCommands.find((c) => c.name === "pi-rules")?.options as any;
+		expect(opts.getArgumentCompletions("")).toEqual([{ value: "doctor", label: "doctor" }]);
+		expect(opts.getArgumentCompletions("doc")).toEqual([{ value: "doctor", label: "doctor" }]);
+		expect(opts.getArgumentCompletions("xyz")).toEqual([]);
+	});
+
+	it("handler dispatches doctor subcommand to runDoctor (verified via emitted message)", async () => {
+		const tmp = mkdtempSync(path.join(os.tmpdir(), "pi-rules-cmd-"));
+		mkdirSync(path.join(tmp, ".pi/rules"), { recursive: true });
+		const fp = makeFakePi();
+		const { factory } = makeFakeWatchFactory();
+		// biome-ignore lint/suspicious/noExplicitAny: test fake
+		makeExtension({ watchFactory: factory })(fp as any);
+		await fp.fire("session_start", { type: "session_start", reason: "startup" }, { cwd: tmp });
+		// biome-ignore lint/suspicious/noExplicitAny: options is unknown
+		const opts = fp.__registeredCommands.find((c) => c.name === "pi-rules")?.options as any;
+		const fakeUiCtx = { hasUI: false, ui: { notify: () => {} } };
+		await opts.handler("doctor", fakeUiCtx);
+		expect(fp.__userMessages.some((m) => m.startsWith("pi-rules doctor: OK"))).toBe(true);
+		rmSync(tmp, { recursive: true, force: true });
+	});
+
+	it("handler with unknown subcommand emits usage line, does NOT run doctor", async () => {
+		const fp = makeFakePi();
+		const { factory } = makeFakeWatchFactory();
+		// biome-ignore lint/suspicious/noExplicitAny: test fake
+		makeExtension({ watchFactory: factory })(fp as any);
+		// biome-ignore lint/suspicious/noExplicitAny: options is unknown
+		const opts = fp.__registeredCommands.find((c) => c.name === "pi-rules")?.options as any;
+		const fakeUiCtx = { hasUI: false, ui: { notify: () => {} } };
+		await opts.handler("frobnicate", fakeUiCtx);
+		expect(fp.__userMessages).toHaveLength(1);
+		expect(fp.__userMessages[0]).toContain("Unknown");
+		expect(fp.__userMessages[0]).toContain("doctor");
+		expect(fp.__userMessages.some((m) => m.startsWith("pi-rules doctor:"))).toBe(false);
+	});
+
+	it("handler with empty input emits usage line", async () => {
+		const fp = makeFakePi();
+		const { factory } = makeFakeWatchFactory();
+		// biome-ignore lint/suspicious/noExplicitAny: test fake
+		makeExtension({ watchFactory: factory })(fp as any);
+		// biome-ignore lint/suspicious/noExplicitAny: options is unknown
+		const opts = fp.__registeredCommands.find((c) => c.name === "pi-rules")?.options as any;
+		const fakeUiCtx = { hasUI: false, ui: { notify: () => {} } };
+		await opts.handler("", fakeUiCtx);
+		expect(fp.__userMessages).toHaveLength(1);
+		expect(fp.__userMessages[0]).toMatch(/doctor/);
 	});
 });
