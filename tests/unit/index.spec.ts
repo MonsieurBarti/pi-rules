@@ -27,9 +27,9 @@ describe("piRulesExtension — registration & lifecycle", () => {
 		expect(piRulesExtension.length).toBe(1);
 	});
 
-	it("AC1b: module exports only `default` (no other named exports)", async () => {
+	it("AC1b: module exports `default` and `makeExtension` (DI seam, no others)", async () => {
 		const mod = await import("../../src/index.js");
-		expect(Object.keys(mod)).toEqual(["default"]);
+		expect(Object.keys(mod).sort()).toEqual(["default", "makeExtension"]);
 	});
 
 	it("AC2a: registers exactly three handlers (session_start, tool_result, session_shutdown)", () => {

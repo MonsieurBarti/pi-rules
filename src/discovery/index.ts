@@ -8,21 +8,25 @@ import { enumerateRuleFiles } from "./walker.js";
 export type { Rule, Source } from "./types.js";
 export type DiscoverOptions = { home?: string };
 
-type RootSpec = { root: string; source: Source };
+export type RuleRootCandidate = { root: string; source: Source };
 
-export async function discover(cwd: string, opts?: DiscoverOptions): Promise<Rule[]> {
-	const home = opts?.home !== undefined ? opts.home : os.homedir();
-	const userRoots: RootSpec[] = home
+export function ruleRootCandidates(cwd: string, home: string): RuleRootCandidate[] {
+	const userRoots: RuleRootCandidate[] = home
 		? [
 				{ root: path.join(home, ".pi/rules"), source: "pi" },
 				{ root: path.join(home, ".claude/rules"), source: "claude" },
 			]
 		: [];
-	const roots: RootSpec[] = [
+	return [
 		...userRoots,
 		{ root: path.join(cwd, ".pi/rules"), source: "pi" },
 		{ root: path.join(cwd, ".claude/rules"), source: "claude" },
 	];
+}
+
+export async function discover(cwd: string, opts?: DiscoverOptions): Promise<Rule[]> {
+	const home = opts?.home !== undefined ? opts.home : os.homedir();
+	const roots = ruleRootCandidates(cwd, home);
 
 	const seen = new Set<string>();
 	const out: Rule[] = [];
