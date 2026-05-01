@@ -32,11 +32,16 @@ describe("piRulesExtension — registration & lifecycle", () => {
 		expect(Object.keys(mod).sort()).toEqual(["default", "makeExtension"]);
 	});
 
-	it("AC2a: registers exactly three handlers (session_start, tool_result, session_shutdown)", () => {
+	it("AC2a: registers exactly four handlers (resources_discover, session_start, tool_result, session_shutdown)", () => {
 		const fp = makeFakePi();
 		piRulesExtension(fp as any);
-		expect(fp.registeredNames()).toEqual(["session_shutdown", "session_start", "tool_result"]);
-		expect(fp.registrationCount()).toBe(3);
+		expect(fp.registeredNames()).toEqual([
+			"resources_discover",
+			"session_shutdown",
+			"session_start",
+			"tool_result",
+		]);
+		expect(fp.registrationCount()).toBe(4);
 	});
 
 	it("AC2d: session_shutdown nulls the matcher (subsequent tool_result returns void)", async () => {

@@ -1,6 +1,7 @@
 import { stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
 	type ExtensionAPI,
 	type ExtensionContext,
@@ -140,6 +141,9 @@ export function makeExtension(deps: ExtensionDeps = {}): (pi: ExtensionAPI) => v
 			lastRules = [];
 			activeCwd = null;
 		});
+
+		const skillsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "skills");
+		pi.on("resources_discover", () => ({ skillPaths: [skillsDir] }));
 
 		pi.registerCommand("pi-rules", {
 			description: "pi-rules — rule discovery diagnostics. Subcommands: doctor",

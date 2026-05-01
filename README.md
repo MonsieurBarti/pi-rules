@@ -69,6 +69,15 @@ When `read` / `edit` / `write` fires on a path, every matching rule (or `alwaysA
 
 `.pi/rules/` and `.claude/rules/` are both first-class. They behave identically and may both be present. A rule symlinked between them counts once (realpath identity).
 
+## Authoring rules
+
+This package ships a `rule-authoring` skill at `dist/skills/rule-authoring/SKILL.md`. PI agents that load skills will pick it up automatically; humans can read the source at `src/skills/rule-authoring/SKILL.md`. The skill covers the frontmatter contract and a terse, readable style — every char in a rule body ships on every match, so the savings from concise rules compound across a session.
+
+Worked examples:
+
+- `examples/.pi/rules/typescript-style.md` — globs-scoped project rule.
+- `examples/.claude/rules/always-be-terse.md` — `alwaysApply: true` rule.
+
 ## Limitations
 
 - Compaction-survival: if pi-coding-agent compacts the conversation, injected text is dropped. Not re-injected.
