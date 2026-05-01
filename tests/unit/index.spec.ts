@@ -4,31 +4,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import piRulesExtension from "../../src/index.js";
 import { clearInjectionLog, injectionLog } from "../../src/testing/injection-log.js";
-
-type Handler = (e: unknown, ctx: unknown) => unknown | Promise<unknown>;
-
-function makeFakePi() {
-	const handlers = new Map<string, Handler[]>();
-	return {
-		on(name: string, h: Handler) {
-			const list = handlers.get(name) ?? [];
-			list.push(h);
-			handlers.set(name, list);
-		},
-		registeredNames(): string[] {
-			return [...handlers.keys()].sort();
-		},
-		registrationCount(): number {
-			return [...handlers.values()].reduce((sum, list) => sum + list.length, 0);
-		},
-		async fire(name: string, e: unknown, ctx: unknown): Promise<unknown> {
-			const list = handlers.get(name) ?? [];
-			let last: unknown = undefined;
-			for (const h of list) last = await h(e, ctx);
-			return last;
-		},
-	};
-}
+import { makeFakePi } from "../_helpers/fake-pi.js";
 
 function mkFixtureWithPiRule(globs: string[], body = "RULE_BODY"): string {
 	const dir = mkdtempSync(path.join(os.tmpdir(), "pi-rules-s04-"));
