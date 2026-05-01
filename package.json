@@ -12,7 +12,7 @@
 	],
 	"scripts": {
 		"clean": "rm -rf dist",
-		"prebuild": "rm -rf dist",
+		"prebuild": "rm -rf dist && mkdir -p dist/skills/rule-authoring && cp src/skills/rule-authoring/SKILL.md dist/skills/rule-authoring/",
 		"build": "tsc -p tsconfig.build.json",
 		"test": "vitest run",
 		"test:e2e": "RUN_E2E=1 vitest run tests/e2e",
@@ -68,6 +68,9 @@
 	"pi": {
 		"extensions": [
 			"./dist/index.js"
+		],
+		"skills": [
+			"./dist/skills"
 		]
 	},
 	"dependencies": {
