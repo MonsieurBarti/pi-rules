@@ -69,7 +69,7 @@ describe("discover() parse probes (AC3b, AC6c)", () => {
 	it("AC3b: tests/e2e/fixture/ parses to three rules with no stderr warnings", async () => {
 		const stderrSpy = vi.spyOn(process.stderr, "write").mockReturnValue(true);
 		try {
-			const rules = await discover(path.resolve("tests/e2e/fixture"));
+			const { rules } = await discover(path.resolve("tests/e2e/fixture"));
 			expect(rules).toHaveLength(3);
 			const ids = rules.map((r) => r.id).sort();
 			expect(ids.some((id) => id.endsWith("/pi-rule.md"))).toBe(true);
@@ -88,7 +88,7 @@ describe("discover() parse probes (AC3b, AC6c)", () => {
 	it("AC6c: examples/ parses to two rules with no stderr warnings", async () => {
 		const stderrSpy = vi.spyOn(process.stderr, "write").mockReturnValue(true);
 		try {
-			const rules = await discover(path.resolve("examples"));
+			const { rules } = await discover(path.resolve("examples"));
 			expect(rules).toHaveLength(2);
 			const ids = rules.map((r) => r.id).sort();
 			expect(ids.some((id) => id.endsWith("/examples/.pi/rules/typescript-style.md"))).toBe(true);

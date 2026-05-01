@@ -65,17 +65,36 @@ Body markdown here. Injected verbatim when the rule fires.
 
 When `read` / `edit` / `write` fires on a path, every matching rule (or `alwaysApply: true` rule) prepends its body to the tool's result for the next model turn. No precedence: all matching rules apply, in discovery order. Once-per-session dedup keyed by realpath.
 
+## Hot reload
+
+Edits to rule files (create / modify / delete / rename) during a running session trigger a matcher recompile; subsequent `tool_result` injections reflect the new rule set. Watcher errors emit a stderr warning and keep the last-known matcher.
+
 ## Two directories, one format
 
 `.pi/rules/` and `.claude/rules/` are both first-class. They behave identically and may both be present. A rule symlinked between them counts once (realpath identity).
 
+## Per-user rules
+
+Rules under `~/.pi/rules/` and `~/.claude/rules/` apply to every project on the machine. They merge with project rules; realpath dedup applies across both sources. Missing directories are silently skipped.
+
+## Authoring rules
+
+This package ships a `rule-authoring` skill at `dist/skills/rule-authoring/SKILL.md`. PI agents that load skills will pick it up automatically; humans can read the source at `src/skills/rule-authoring/SKILL.md`. The skill covers the frontmatter contract and a terse, readable style — every char in a rule body ships on every match, so the savings from concise rules compound across a session.
+
+Worked examples:
+
+- `examples/.pi/rules/typescript-style.md` — globs-scoped project rule.
+- `examples/.claude/rules/always-be-terse.md` — `alwaysApply: true` rule.
+
+## Diagnostics
+
+Inside a running pi session, type `/pi-rules doctor` to print a discovery report: every rule with id, source path, globs, and `alwaysApply` flag, plus any parse errors and skipped files. The report header is `pi-rules doctor: OK …` when discovery is clean and `pi-rules doctor: ERRORS …` when any rule failed to parse.
+
 ## Limitations
 
 - Compaction-survival: if pi-coding-agent compacts the conversation, injected text is dropped. Not re-injected.
-- Hot reload: rule edits during a session take effect at the next `session_start`.
 - Once-per-session dedup is by realpath. Two independent files with identical bodies inject twice.
 - No precedence / conflict resolution. All matching rules apply, in input order.
-- Per-user rules (`~/.pi/rules`, `~/.claude/rules`) are not supported.
 - Parse errors (invalid YAML, missing `description`, `globs: []` with `alwaysApply: false`) skip the file with a stderr warning. Discovery does not abort.
 - Custom tools (`bash`, `grep`, `find`, `ls`, custom) do not trigger injection. Only `read` / `edit` / `write`.
 
