@@ -10,6 +10,15 @@ export type DiscoverOptions = { home?: string };
 
 export type RuleRootCandidate = { root: string; source: Source };
 
+export type DiagnosticKind = "parse_error" | "skipped_no_frontmatter" | "unreadable";
+
+export type Diagnostic =
+	| { kind: "parse_error"; absPath: string; source: Source; reason: string }
+	| { kind: "skipped_no_frontmatter"; absPath: string; source: Source }
+	| { kind: "unreadable"; absPath: string; source: Source; code: string };
+
+export type DiscoverResult = { rules: Rule[]; diagnostics: Diagnostic[] };
+
 export function ruleRootCandidates(cwd: string, home: string): RuleRootCandidate[] {
 	const userRoots: RuleRootCandidate[] = home
 		? [
@@ -24,12 +33,30 @@ export function ruleRootCandidates(cwd: string, home: string): RuleRootCandidate
 	];
 }
 
-export async function discover(cwd: string, opts?: DiscoverOptions): Promise<Rule[]> {
+const UNREADABLE_PREFIX = "unreadable: ";
+
+function classifyParseFailure(absPath: string, source: Source, reason: string): Diagnostic {
+	if (reason === "missing frontmatter") {
+		return { kind: "skipped_no_frontmatter", absPath, source };
+	}
+	if (reason.startsWith(UNREADABLE_PREFIX)) {
+		return {
+			kind: "unreadable",
+			absPath,
+			source,
+			code: reason.slice(UNREADABLE_PREFIX.length),
+		};
+	}
+	return { kind: "parse_error", absPath, source, reason };
+}
+
+export async function discover(cwd: string, opts?: DiscoverOptions): Promise<DiscoverResult> {
 	const home = opts?.home !== undefined ? opts.home : os.homedir();
 	const roots = ruleRootCandidates(cwd, home);
 
 	const seen = new Set<string>();
-	const out: Rule[] = [];
+	const rules: Rule[] = [];
+	const diagnostics: Diagnostic[] = [];
 
 	for (const { root, source } of roots) {
 		try {
@@ -46,7 +73,7 @@ export async function discover(cwd: string, opts?: DiscoverOptions): Promise<Rul
 				id = await realpath(absPath);
 			} catch (err) {
 				const code = (err as NodeJS.ErrnoException).code ?? "EUNKNOWN";
-				warn(cwd, absPath, `unreadable: ${code}`);
+				diagnostics.push({ kind: "unreadable", absPath, source, code });
 				continue;
 			}
 			if (seen.has(id)) continue;
@@ -54,17 +81,11 @@ export async function discover(cwd: string, opts?: DiscoverOptions): Promise<Rul
 
 			const result = await parseRuleFile(absPath, source);
 			if (isParseFailure(result)) {
-				if (result.reason !== "missing frontmatter") {
-					warn(cwd, absPath, result.reason);
-				}
+				diagnostics.push(classifyParseFailure(absPath, source, result.reason));
 				continue;
 			}
-			out.push({ ...result, id });
+			rules.push({ ...result, id });
 		}
 	}
-	return out;
-}
-
-function warn(cwd: string, absPath: string, reason: string): void {
-	process.stderr.write(`[pi-rules] skipped ${path.relative(cwd, absPath)}: ${reason}\n`);
+	return { rules, diagnostics };
 }

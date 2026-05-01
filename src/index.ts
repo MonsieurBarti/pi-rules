@@ -11,7 +11,7 @@ import {
 	isReadToolResult,
 	isWriteToolResult,
 } from "@mariozechner/pi-coding-agent";
-import { discover, ruleRootCandidates } from "./discovery/index.js";
+import { type Diagnostic, discover, ruleRootCandidates } from "./discovery/index.js";
 import { reconcileInjectedIds } from "./discovery/reconcile.js";
 import type { Rule } from "./discovery/types.js";
 import { type Watcher, type WatcherOptions, startWatcher } from "./discovery/watcher.js";
@@ -60,7 +60,8 @@ export function makeExtension(deps: ExtensionDeps = {}): (pi: ExtensionAPI) => v
 			const cwd = activeCwd;
 			currentReload = (async () => {
 				try {
-					const next = await discover(cwd);
+					const { rules: next, diagnostics } = await discover(cwd);
+					for (const d of diagnostics) emitDiagnostic(cwd, d);
 					const nextMatcher = compileMatcher(next);
 					reconcileInjectedIds(lastRules, next, injectedIds);
 					matcher = nextMatcher;
@@ -82,7 +83,8 @@ export function makeExtension(deps: ExtensionDeps = {}): (pi: ExtensionAPI) => v
 			injectedIds.clear();
 			activeCwd = ctx.cwd;
 			try {
-				const rules = await discover(ctx.cwd);
+				const { rules, diagnostics } = await discover(ctx.cwd);
+				for (const d of diagnostics) emitDiagnostic(ctx.cwd, d);
 				matcher = compileMatcher(rules);
 				lastRules = rules;
 			} catch (err) {
@@ -141,3 +143,9 @@ export function makeExtension(deps: ExtensionDeps = {}): (pi: ExtensionAPI) => v
 }
 
 export default makeExtension();
+
+function emitDiagnostic(cwd: string, d: Diagnostic): void {
+	if (d.kind === "skipped_no_frontmatter") return;
+	const reason = d.kind === "unreadable" ? `unreadable: ${d.code}` : d.reason;
+	process.stderr.write(`[pi-rules] skipped ${path.relative(cwd, d.absPath)}: ${reason}\n`);
+}

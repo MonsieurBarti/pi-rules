@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import os, { tmpdir } from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { discover } from "../../../src/discovery/index.js";
 
 let cwd: string;
@@ -21,7 +21,7 @@ describe("discover happy path", () => {
 		await writeFile(path.join(cwd, ".pi", "rules", "foo.md"), VALID_FM);
 		await writeFile(path.join(cwd, ".claude", "rules", "bar.md"), VALID_FM);
 
-		const rules = await discover(cwd);
+		const { rules } = await discover(cwd);
 		expect(rules).toHaveLength(2);
 		expect(rules.find((r) => r.source === "pi")?.sourcePath).toBe(
 			path.join(cwd, ".pi", "rules", "foo.md"),
@@ -37,7 +37,7 @@ describe("discover happy path", () => {
 		await writeFile(path.join(cwd, ".pi", "rules", "x.md"), VALID_FM);
 		await writeFile(path.join(cwd, ".claude", "rules", "x.md"), VALID_FM);
 
-		const rules = await discover(cwd);
+		const { rules } = await discover(cwd);
 		expect(rules).toHaveLength(2);
 		const ids = new Set(rules.map((r) => r.id));
 		expect(ids.size).toBe(2);
@@ -52,7 +52,7 @@ describe("discover happy path", () => {
 		await writeFile(target, VALID_FM);
 		await fs.symlink(target, path.join(cwd, ".claude", "rules", "x.md"));
 
-		const rules = await discover(cwd);
+		const { rules } = await discover(cwd);
 		expect(rules).toHaveLength(1);
 		expect(rules[0]?.source).toBe("pi");
 		expect(rules[0]?.sourcePath).toBe(target);
@@ -67,7 +67,7 @@ describe("discover happy path", () => {
 		await writeFile(target, VALID_FM);
 		await fs.symlink(target, path.join(cwd, ".pi", "rules", "x.md"));
 
-		const rules = await discover(cwd);
+		const { rules } = await discover(cwd);
 		expect(rules).toHaveLength(1);
 		expect(rules[0]?.source).toBe("pi");
 		expect(rules[0]?.sourcePath).toBe(path.join(cwd, ".pi", "rules", "x.md"));
@@ -77,7 +77,7 @@ describe("discover happy path", () => {
 		const fs = await import("node:fs/promises");
 		await mkdir(path.join(cwd, ".pi", "rules"), { recursive: true });
 		await writeFile(path.join(cwd, ".pi", "rules", "a.md"), VALID_FM);
-		const rules = await discover(cwd);
+		const { rules } = await discover(cwd);
 		for (const r of rules) {
 			expect(r.id).toBe(await fs.realpath(r.sourcePath));
 		}
@@ -94,8 +94,9 @@ describe("discover root errors", () => {
 			return true;
 		};
 		try {
-			const rules = await discover(cwd);
+			const { rules, diagnostics } = await discover(cwd);
 			expect(rules).toEqual([]);
+			expect(diagnostics).toEqual([]);
 			expect(errors).toEqual([]);
 		} finally {
 			process.stderr.write = orig;
@@ -116,8 +117,135 @@ describe("discover root errors", () => {
 	});
 });
 
-describe("discover stderr contract", () => {
-	function captureStderr(): { lines: string[]; restore: () => void } {
+describe("discover diagnostics contract (M01-S03)", () => {
+	it("returns parse_error for invalid frontmatter (missing description)", async () => {
+		const tmp = await mkdtemp(path.join(os.tmpdir(), "pi-rules-diag-"));
+		const dir = path.join(tmp, ".pi/rules");
+		await mkdir(dir, { recursive: true });
+		await writeFile(path.join(dir, "no-desc.md"), '---\nglobs: ["**/*"]\n---\nbody\n');
+		const { rules, diagnostics } = await discover(tmp, { home: "" });
+		expect(rules).toEqual([]);
+		expect(diagnostics).toHaveLength(1);
+		expect(diagnostics[0]).toMatchObject({
+			kind: "parse_error",
+			source: "pi",
+			reason: "missing description",
+		});
+		expect(diagnostics[0].absPath.endsWith("no-desc.md")).toBe(true);
+		await rm(tmp, { recursive: true });
+	});
+
+	it("returns skipped_no_frontmatter for files without frontmatter", async () => {
+		const tmp = await mkdtemp(path.join(os.tmpdir(), "pi-rules-diag-"));
+		const dir = path.join(tmp, ".pi/rules");
+		await mkdir(dir, { recursive: true });
+		await writeFile(path.join(dir, "plain.md"), "no frontmatter here\n");
+		const { rules, diagnostics } = await discover(tmp, { home: "" });
+		expect(rules).toEqual([]);
+		expect(diagnostics).toEqual([
+			{
+				kind: "skipped_no_frontmatter",
+				absPath: path.join(dir, "plain.md"),
+				source: "pi",
+			},
+		]);
+		await rm(tmp, { recursive: true });
+	});
+
+	it("returns unreadable when parseRuleFile reports unreadable: <code> (parse-side branch)", async () => {
+		const tmp = await mkdtemp(path.join(os.tmpdir(), "pi-rules-diag-"));
+		const dir = path.join(tmp, ".pi/rules");
+		await mkdir(dir, { recursive: true });
+		await writeFile(path.join(dir, "x.md"), '---\ndescription: a\nglobs: ["**/*"]\n---\n');
+		const parseMod = await import("../../../src/discovery/parse.js");
+		const spy = vi.spyOn(parseMod, "parseRuleFile").mockResolvedValueOnce({
+			kind: "parse-failure",
+			reason: "unreadable: EACCES",
+		});
+		const { rules, diagnostics } = await discover(tmp, { home: "" });
+		spy.mockRestore();
+		expect(rules).toEqual([]);
+		expect(diagnostics).toEqual([
+			{
+				kind: "unreadable",
+				absPath: path.join(dir, "x.md"),
+				source: "pi",
+				code: "EACCES",
+			},
+		]);
+		await rm(tmp, { recursive: true });
+	});
+
+	it("returns unreadable from realpath rejection (broken symlink, realpath-side branch)", async () => {
+		if (process.platform === "win32") return;
+		const tmp = await mkdtemp(path.join(os.tmpdir(), "pi-rules-diag-"));
+		const dir = path.join(tmp, ".pi/rules");
+		await mkdir(dir, { recursive: true });
+		const fs = await import("node:fs/promises");
+		await fs.symlink(path.join(tmp, "missing-target"), path.join(dir, "ghost.md"));
+		const { rules, diagnostics } = await discover(tmp, { home: "" });
+		expect(rules).toEqual([]);
+		expect(diagnostics).toEqual([
+			{
+				kind: "unreadable",
+				absPath: path.join(dir, "ghost.md"),
+				source: "pi",
+				code: "ENOENT",
+			},
+		]);
+		await rm(tmp, { recursive: true });
+	});
+
+	it("AC3.6: preserves full rule shape ∧ ordering; diagnostics emitted alongside rules", async () => {
+		const tmp = await mkdtemp(path.join(os.tmpdir(), "pi-rules-diag-"));
+		const dir = path.join(tmp, ".pi/rules");
+		await mkdir(dir, { recursive: true });
+		await writeFile(
+			path.join(dir, "a.md"),
+			'---\ndescription: alpha\nglobs: ["src/**"]\n---\nA-body\n',
+		);
+		await writeFile(path.join(dir, "no-fm.md"), "no frontmatter\n");
+		await writeFile(path.join(dir, "bad.md"), "---\ndescription: bad\nglobs: 99\n---\n");
+		await writeFile(
+			path.join(dir, "b.md"),
+			"---\ndescription: beta\nalwaysApply: true\n---\nB-body\n",
+		);
+		const { rules, diagnostics } = await discover(tmp, { home: "" });
+		const fs = await import("node:fs/promises");
+		expect(rules).toHaveLength(2);
+		const ruleA = rules.find((r) => r.sourcePath === path.join(dir, "a.md"));
+		const ruleB = rules.find((r) => r.sourcePath === path.join(dir, "b.md"));
+		expect(ruleA).toBeDefined();
+		expect(ruleB).toBeDefined();
+		expect(ruleA).toMatchObject({
+			source: "pi",
+			description: "alpha",
+			globs: ["src/**"],
+			alwaysApply: false,
+			body: "A-body\n",
+		});
+		expect(ruleA?.id).toBe(await fs.realpath(path.join(dir, "a.md")));
+		expect(ruleB).toMatchObject({
+			source: "pi",
+			description: "beta",
+			globs: [],
+			alwaysApply: true,
+			body: "B-body\n",
+		});
+		expect(ruleB?.id).toBe(await fs.realpath(path.join(dir, "b.md")));
+		expect(diagnostics).toHaveLength(2);
+		expect(diagnostics.map((d) => d.kind).sort()).toEqual([
+			"parse_error",
+			"skipped_no_frontmatter",
+		]);
+		await rm(tmp, { recursive: true });
+	});
+
+	it("does NOT write to stderr (diagnostics are returned, not logged)", async () => {
+		const tmp = await mkdtemp(path.join(os.tmpdir(), "pi-rules-diag-"));
+		const dir = path.join(tmp, ".pi/rules");
+		await mkdir(dir, { recursive: true });
+		await writeFile(path.join(dir, "no-desc.md"), '---\nglobs: ["**/*"]\n---\n');
 		const lines: string[] = [];
 		const orig = process.stderr.write.bind(process.stderr);
 		// biome-ignore lint/suspicious/noExplicitAny: stderr spy
@@ -125,85 +253,12 @@ describe("discover stderr contract", () => {
 			lines.push(chunk);
 			return true;
 		};
-		return {
-			lines,
-			restore: () => {
-				process.stderr.write = orig;
-			},
-		};
-	}
-
-	it("AC7a-e: full-line equality across mixed-fixture failures", async () => {
-		const root = path.join(cwd, ".pi", "rules");
-		await mkdir(root, { recursive: true });
-		await writeFile(path.join(root, "valid.md"), VALID_FM);
-		await writeFile(path.join(root, "miss-fm.md"), "body without delimiters\n");
-		await writeFile(path.join(root, "bad-yaml.md"), `---\ndescription: "unterm\n---\nbody\n`);
-		await writeFile(path.join(root, "no-desc.md"), `---\nglobs: ["a"]\n---\nbody\n`);
-		await writeFile(
-			path.join(root, "empty-globs.md"),
-			"---\ndescription: D\nglobs: []\n---\nbody\n",
-		);
-		await writeFile(
-			path.join(root, "wrong-globs.md"),
-			"---\ndescription: D\nglobs: [1, 2]\n---\nbody\n",
-		);
-
-		const spy = captureStderr();
 		try {
-			const rules = await discover(cwd);
-			expect(rules).toHaveLength(1);
-			expect(spy.lines.some((l) => l.includes("miss-fm.md"))).toBe(false);
-			expect(spy.lines).toContain("[pi-rules] skipped .pi/rules/no-desc.md: missing description\n");
-			expect(spy.lines).toContain(
-				"[pi-rules] skipped .pi/rules/empty-globs.md: globs required when alwaysApply is not true\n",
-			);
-			expect(spy.lines).toContain(
-				"[pi-rules] skipped .pi/rules/wrong-globs.md: globs must be string[]\n",
-			);
-			expect(
-				spy.lines.some((l) =>
-					l.startsWith("[pi-rules] skipped .pi/rules/bad-yaml.md: invalid yaml: "),
-				),
-			).toBe(true);
-			expect(spy.lines).toHaveLength(4);
+			await discover(tmp, { home: "" });
 		} finally {
-			spy.restore();
+			process.stderr.write = orig;
 		}
-	});
-
-	it("AC7f: broken symlink emits unreadable: ENOENT (POSIX only)", async () => {
-		if (process.platform === "win32") return;
-		const fs = await import("node:fs/promises");
-		await mkdir(path.join(cwd, ".pi", "rules"), { recursive: true });
-		await fs.symlink(
-			path.join(cwd, "nonexistent-target"),
-			path.join(cwd, ".pi", "rules", "broken.md"),
-		);
-
-		const spy = captureStderr();
-		try {
-			const rules = await discover(cwd);
-			expect(rules).toEqual([]);
-			expect(spy.lines).toEqual(["[pi-rules] skipped .pi/rules/broken.md: unreadable: ENOENT\n"]);
-		} finally {
-			spy.restore();
-		}
-	});
-
-	it("AC8: one valid + one invalid → 1 rule, 1 stderr line, no throw", async () => {
-		const root = path.join(cwd, ".pi", "rules");
-		await mkdir(root, { recursive: true });
-		await writeFile(path.join(root, "valid.md"), VALID_FM);
-		await writeFile(path.join(root, "no-desc.md"), `---\nglobs: ["a"]\n---\nbody\n`);
-
-		const spy = captureStderr();
-		try {
-			const rules = await discover(cwd);
-			expect(rules).toHaveLength(1);
-			expect(spy.lines).toHaveLength(1);
-		} finally {
-			spy.restore();
-		}
+		expect(lines.filter((l) => l.startsWith("[pi-rules]"))).toEqual([]);
+		await rm(tmp, { recursive: true });
 	});
 });
