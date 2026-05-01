@@ -145,9 +145,11 @@ describe("hot-reload extension wiring", () => {
 		expect(injectionLog.length).toBe(1);
 
 		created[0].emitChange();
-		// Fixed settle wait: 10ms debounce + ample headroom for the awaited
-		// discover() chain. We can't poll a negative assertion, so wait long
-		// enough that the reload has definitely landed.
+		// AC2.5 is a *negative* assertion ("should NOT re-inject"), so polling
+		// via waitFor doesn't help — the condition is satisfied trivially before
+		// reload completes. We must let the reload land, then assert the dedup
+		// state is preserved. Sleep 10x the debounce window for ample headroom
+		// over the awaited discover() chain.
 		await new Promise((r) => setTimeout(r, 100));
 
 		const r2 = await fp.fire("tool_result", readResult("src/a.ts"), { cwd: dir });

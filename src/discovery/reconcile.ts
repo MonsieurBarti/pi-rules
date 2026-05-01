@@ -14,7 +14,8 @@ export function reconcileInjectedIds(
 			continue;
 		}
 		const prevRule = prevById.get(id);
-		if (prevRule === undefined) continue;
-		if (prevRule.body !== nextRule.body) ids.delete(id);
+		if (prevRule === undefined || prevRule.body !== nextRule.body) {
+			ids.delete(id);
+		}
 	}
 }
