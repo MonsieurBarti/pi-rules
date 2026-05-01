@@ -112,3 +112,50 @@ describe("user-root discovery (AC1)", () => {
 		}
 	});
 });
+
+describe("user/project realpath dedup", () => {
+	it("symlink project → user yields one entry with user sourcePath", async () => {
+		if (process.platform === "win32") return;
+		const fs = await import("node:fs/promises");
+		await mkdir(path.join(home, ".pi", "rules"), { recursive: true });
+		await mkdir(path.join(cwd, ".pi", "rules"), { recursive: true });
+		const target = path.join(home, ".pi", "rules", "shared.md");
+		await writeFile(target, VALID_FM);
+		await fs.symlink(target, path.join(cwd, ".pi", "rules", "shared.md"));
+
+		const rules = await discover(cwd, { home });
+		expect(rules).toHaveLength(1);
+		expect(rules[0]?.sourcePath).toBe(target);
+		expect(rules[0]?.source).toBe("pi");
+	});
+
+	it("symlink user → project (inverse) still yields one entry with user sourcePath", async () => {
+		if (process.platform === "win32") return;
+		const fs = await import("node:fs/promises");
+		await mkdir(path.join(home, ".pi", "rules"), { recursive: true });
+		await mkdir(path.join(cwd, ".pi", "rules"), { recursive: true });
+		const target = path.join(cwd, ".pi", "rules", "shared.md");
+		await writeFile(target, VALID_FM);
+		await fs.symlink(target, path.join(home, ".pi", "rules", "shared.md"));
+
+		const rules = await discover(cwd, { home });
+		expect(rules).toHaveLength(1);
+		// User iterated first, so the symlink at ~/.pi/rules wins reported sourcePath.
+		expect(rules[0]?.sourcePath).toBe(path.join(home, ".pi", "rules", "shared.md"));
+		expect(rules[0]?.source).toBe("pi");
+		// id is still the realpath (the project file).
+		expect(rules[0]?.id).toBe(await fs.realpath(target));
+	});
+
+	it("non-symlinked twins (different files, same body) produce two entries", async () => {
+		await mkdir(path.join(home, ".pi", "rules"), { recursive: true });
+		await mkdir(path.join(cwd, ".pi", "rules"), { recursive: true });
+		await writeFile(path.join(home, ".pi", "rules", "x.md"), VALID_FM);
+		await writeFile(path.join(cwd, ".pi", "rules", "x.md"), VALID_FM);
+
+		const rules = await discover(cwd, { home });
+		expect(rules).toHaveLength(2);
+		const ids = new Set(rules.map((r) => r.id));
+		expect(ids.size).toBe(2);
+	});
+});
