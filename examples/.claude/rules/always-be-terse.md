@@ -1,6 +1,5 @@
 ---
-description: Default voice for all responses.
+description: Default voice.
 alwaysApply: true
 ---
-Be terse.
-No filler. State the result; skip the preamble.
+Be terse. State result; ¬preamble. ¬filler.

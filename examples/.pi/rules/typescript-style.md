@@ -1,7 +1,7 @@
 ---
-description: TypeScript style preferences for src/.
+description: TypeScript style for src/.
 globs: ["src/**/*.ts"]
 alwaysApply: false
 ---
-Prefer named exports. No default exports for utility modules.
-Avoid `any`; use `unknown` and narrow.
+∀ export: named ¬default.
+¬any → unknown + narrow.
