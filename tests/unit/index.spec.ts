@@ -585,3 +585,72 @@ describe("runtime stderr parity (M01-S03)", () => {
 		rmSync(tmp, { recursive: true, force: true });
 	});
 });
+
+describe("pi-rules slash command (M01-S03)", () => {
+	it("registers exactly one command named pi-rules with description mentioning doctor", () => {
+		const fp = makeFakePi();
+		const { factory } = makeFakeWatchFactory();
+		// biome-ignore lint/suspicious/noExplicitAny: test fake
+		makeExtension({ watchFactory: factory })(fp as any);
+		const reg = fp.__registeredCommands.filter((c) => c.name === "pi-rules");
+		expect(reg).toHaveLength(1);
+		// biome-ignore lint/suspicious/noExplicitAny: options is unknown in fake
+		expect((reg[0]?.options as any).description).toMatch(/doctor/i);
+	});
+
+	it("getArgumentCompletions returns doctor for empty/partial prefix", () => {
+		const fp = makeFakePi();
+		const { factory } = makeFakeWatchFactory();
+		// biome-ignore lint/suspicious/noExplicitAny: test fake
+		makeExtension({ watchFactory: factory })(fp as any);
+		// biome-ignore lint/suspicious/noExplicitAny: options is unknown
+		const opts = fp.__registeredCommands.find((c) => c.name === "pi-rules")?.options as any;
+		expect(opts.getArgumentCompletions("")).toEqual([{ value: "doctor", label: "doctor" }]);
+		expect(opts.getArgumentCompletions("doc")).toEqual([{ value: "doctor", label: "doctor" }]);
+		expect(opts.getArgumentCompletions("xyz")).toEqual([]);
+	});
+
+	it("handler dispatches doctor subcommand to runDoctor (verified via emitted message)", async () => {
+		const tmp = mkdtempSync(path.join(os.tmpdir(), "pi-rules-cmd-"));
+		mkdirSync(path.join(tmp, ".pi/rules"), { recursive: true });
+		const fp = makeFakePi();
+		const { factory } = makeFakeWatchFactory();
+		// biome-ignore lint/suspicious/noExplicitAny: test fake
+		makeExtension({ watchFactory: factory })(fp as any);
+		await fp.fire("session_start", { type: "session_start", reason: "startup" }, { cwd: tmp });
+		// biome-ignore lint/suspicious/noExplicitAny: options is unknown
+		const opts = fp.__registeredCommands.find((c) => c.name === "pi-rules")?.options as any;
+		const fakeUiCtx = { hasUI: false, ui: { notify: () => {} } };
+		await opts.handler("doctor", fakeUiCtx);
+		expect(fp.__userMessages.some((m) => m.startsWith("pi-rules doctor: OK"))).toBe(true);
+		rmSync(tmp, { recursive: true, force: true });
+	});
+
+	it("handler with unknown subcommand emits usage line, does NOT run doctor", async () => {
+		const fp = makeFakePi();
+		const { factory } = makeFakeWatchFactory();
+		// biome-ignore lint/suspicious/noExplicitAny: test fake
+		makeExtension({ watchFactory: factory })(fp as any);
+		// biome-ignore lint/suspicious/noExplicitAny: options is unknown
+		const opts = fp.__registeredCommands.find((c) => c.name === "pi-rules")?.options as any;
+		const fakeUiCtx = { hasUI: false, ui: { notify: () => {} } };
+		await opts.handler("frobnicate", fakeUiCtx);
+		expect(fp.__userMessages).toHaveLength(1);
+		expect(fp.__userMessages[0]).toContain("Unknown");
+		expect(fp.__userMessages[0]).toContain("doctor");
+		expect(fp.__userMessages.some((m) => m.startsWith("pi-rules doctor:"))).toBe(false);
+	});
+
+	it("handler with empty input emits usage line", async () => {
+		const fp = makeFakePi();
+		const { factory } = makeFakeWatchFactory();
+		// biome-ignore lint/suspicious/noExplicitAny: test fake
+		makeExtension({ watchFactory: factory })(fp as any);
+		// biome-ignore lint/suspicious/noExplicitAny: options is unknown
+		const opts = fp.__registeredCommands.find((c) => c.name === "pi-rules")?.options as any;
+		const fakeUiCtx = { hasUI: false, ui: { notify: () => {} } };
+		await opts.handler("", fakeUiCtx);
+		expect(fp.__userMessages).toHaveLength(1);
+		expect(fp.__userMessages[0]).toMatch(/doctor/);
+	});
+});

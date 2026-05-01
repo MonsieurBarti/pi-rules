@@ -11,6 +11,7 @@ import {
 	isReadToolResult,
 	isWriteToolResult,
 } from "@mariozechner/pi-coding-agent";
+import { runDoctor } from "./commands/doctor.js";
 import { type Diagnostic, discover, ruleRootCandidates } from "./discovery/index.js";
 import { reconcileInjectedIds } from "./discovery/reconcile.js";
 import type { Rule } from "./discovery/types.js";
@@ -139,8 +140,32 @@ export function makeExtension(deps: ExtensionDeps = {}): (pi: ExtensionAPI) => v
 			lastRules = [];
 			activeCwd = null;
 		});
+
+		pi.registerCommand("pi-rules", {
+			description: "pi-rules — rule discovery diagnostics. Subcommands: doctor",
+			getArgumentCompletions: (prefix: string) => {
+				const sub = prefix.trim().split(/\s+/)[0] ?? "";
+				return SUBCOMMANDS.filter((c) => c.startsWith(sub)).map((c) => ({
+					value: c,
+					label: c,
+				}));
+			},
+			handler: async (input, uiCtx) => {
+				const parts = input.trim().split(/\s+/).filter(Boolean);
+				const sub = parts[0] ?? "";
+				if (sub === "doctor") {
+					await runDoctor(pi, uiCtx, activeCwd ?? process.cwd());
+					return;
+				}
+				pi.sendUserMessage(
+					sub ? `Unknown /pi-rules subcommand: ${sub}. Try: doctor` : "/pi-rules — try: doctor",
+				);
+			},
+		});
 	};
 }
+
+const SUBCOMMANDS = ["doctor"] as const;
 
 export default makeExtension();
 
