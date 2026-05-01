@@ -10,12 +10,17 @@ export type DiscoverOptions = { home?: string };
 
 export type RuleRootCandidate = { root: string; source: Source };
 
-export type DiagnosticKind = "parse_error" | "skipped_no_frontmatter" | "unreadable";
+export type DiagnosticKind =
+	| "parse_error"
+	| "skipped_no_frontmatter"
+	| "unreadable"
+	| "symlink_escape";
 
 export type Diagnostic =
 	| { kind: "parse_error"; absPath: string; source: Source; reason: string }
 	| { kind: "skipped_no_frontmatter"; absPath: string; source: Source }
-	| { kind: "unreadable"; absPath: string; source: Source; code: string };
+	| { kind: "unreadable"; absPath: string; source: Source; code: string }
+	| { kind: "symlink_escape"; absPath: string; source: Source; targetPath: string };
 
 export type DiscoverResult = { rules: Rule[]; diagnostics: Diagnostic[] };
 
@@ -54,6 +59,15 @@ export async function discover(cwd: string, opts?: DiscoverOptions): Promise<Dis
 	const home = opts?.home !== undefined ? opts.home : os.homedir();
 	const roots = ruleRootCandidates(cwd, home);
 
+	const allowedRealpaths: string[] = [];
+	for (const { root } of roots) {
+		try {
+			allowedRealpaths.push(await realpath(root));
+		} catch {
+			// root absent / unreadable — skipped at the per-root stat() loop below
+		}
+	}
+
 	const seen = new Set<string>();
 	const rules: Rule[] = [];
 	const diagnostics: Diagnostic[] = [];
@@ -76,6 +90,10 @@ export async function discover(cwd: string, opts?: DiscoverOptions): Promise<Dis
 				diagnostics.push({ kind: "unreadable", absPath, source, code });
 				continue;
 			}
+			if (!isInsideAllowedRoot(id, allowedRealpaths)) {
+				diagnostics.push({ kind: "symlink_escape", absPath, source, targetPath: id });
+				continue;
+			}
 			if (seen.has(id)) continue;
 			seen.add(id);
 
@@ -88,4 +106,12 @@ export async function discover(cwd: string, opts?: DiscoverOptions): Promise<Dis
 		}
 	}
 	return { rules, diagnostics };
+}
+
+function isInsideAllowedRoot(id: string, allowedRealpaths: string[]): boolean {
+	for (const root of allowedRealpaths) {
+		if (id === root) return true;
+		if (id.startsWith(root + path.sep)) return true;
+	}
+	return false;
 }

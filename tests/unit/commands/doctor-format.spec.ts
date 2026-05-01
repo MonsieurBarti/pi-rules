@@ -175,4 +175,47 @@ describe("hasErrors(DiscoverResult)", () => {
 			}),
 		).toBe(true);
 	});
+
+	it("true when at least one symlink_escape", () => {
+		expect(
+			hasErrors({
+				rules: [],
+				diagnostics: [
+					{
+						kind: "symlink_escape",
+						absPath: "/abs/.pi/rules/link.md",
+						source: "pi",
+						targetPath: "/etc/passwd",
+					},
+				],
+			}),
+		).toBe(true);
+	});
+});
+
+describe("format(DiscoverResult) — symlink_escape", () => {
+	it("symlink_escape: rendered under Errors with 'symlink escape: <targetPath>'", () => {
+		const out = format({
+			rules: [],
+			diagnostics: [
+				{
+					kind: "symlink_escape",
+					absPath: "/abs/.pi/rules/link.md",
+					source: "pi",
+					targetPath: "/etc/passwd",
+				},
+			],
+		});
+		expect(out).toBe(
+			"pi-rules doctor: ERRORS — 0 rules, 1 errors, 0 skipped\n\n" +
+				"Errors:\n" +
+				"  /abs/.pi/rules/link.md\n" +
+				"    symlink escape: /etc/passwd\n\n" +
+				"Coverage:\n" +
+				"  total rules:    0\n" +
+				"  alwaysApply:    0\n" +
+				"  glob-scoped:    0\n" +
+				"  sources:        pi=0, claude=0",
+		);
+	});
 });

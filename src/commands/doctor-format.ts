@@ -1,14 +1,21 @@
 import type { Diagnostic, DiscoverResult } from "../discovery/index.js";
 import type { Rule } from "../discovery/types.js";
 
+type ErrorDiagnostic = Extract<
+	Diagnostic,
+	{ kind: "parse_error" } | { kind: "unreadable" } | { kind: "symlink_escape" }
+>;
+
 export function hasErrors(result: DiscoverResult): boolean {
-	return result.diagnostics.some((d) => d.kind === "parse_error" || d.kind === "unreadable");
+	return result.diagnostics.some(
+		(d) => d.kind === "parse_error" || d.kind === "unreadable" || d.kind === "symlink_escape",
+	);
 }
 
 export function format(result: DiscoverResult): string {
 	const errors = result.diagnostics.filter(
-		(d): d is Extract<Diagnostic, { kind: "parse_error" } | { kind: "unreadable" }> =>
-			d.kind === "parse_error" || d.kind === "unreadable",
+		(d): d is ErrorDiagnostic =>
+			d.kind === "parse_error" || d.kind === "unreadable" || d.kind === "symlink_escape",
 	);
 	const skipped = result.diagnostics.filter(
 		(d): d is Extract<Diagnostic, { kind: "skipped_no_frontmatter" }> =>
@@ -40,16 +47,19 @@ function formatRules(rules: Rule[]): string {
 	return lines.join("\n");
 }
 
-function formatErrors(
-	errors: Array<Extract<Diagnostic, { kind: "parse_error" } | { kind: "unreadable" }>>,
-): string {
+function formatErrors(errors: ErrorDiagnostic[]): string {
 	const lines: string[] = ["Errors:"];
 	for (const e of errors) {
-		const reason = e.kind === "unreadable" ? `unreadable: ${e.code}` : e.reason;
 		lines.push(`  ${e.absPath}`);
-		lines.push(`    ${reason}`);
+		lines.push(`    ${errorReason(e)}`);
 	}
 	return lines.join("\n");
+}
+
+function errorReason(e: ErrorDiagnostic): string {
+	if (e.kind === "unreadable") return `unreadable: ${e.code}`;
+	if (e.kind === "symlink_escape") return `symlink escape: ${e.targetPath}`;
+	return e.reason;
 }
 
 function formatSkipped(

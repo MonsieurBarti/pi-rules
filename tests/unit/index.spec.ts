@@ -552,6 +552,36 @@ describe("runtime stderr parity (M01-S03)", () => {
 		rmSync(tmp, { recursive: true, force: true });
 	});
 
+	it("session_start: emits 'symlink escape: <target>' for symlink resolving outside rule roots", async () => {
+		if (process.platform === "win32") return;
+		const tmp = mkdtempSync(path.join(os.tmpdir(), "pi-rules-rt-"));
+		const dir = path.join(tmp, ".pi/rules");
+		mkdirSync(dir, { recursive: true });
+		const fs = await import("node:fs/promises");
+		const outsideTarget = path.join(tmp, "outside.md");
+		writeFileSync(outsideTarget, '---\ndescription: x\nglobs: ["**/*"]\n---\n');
+		await fs.symlink(outsideTarget, path.join(dir, "escape.md"));
+		const realTarget = await fs.realpath(outsideTarget);
+		const lines: string[] = [];
+		const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation((chunk: unknown) => {
+			lines.push(String(chunk));
+			return true;
+		});
+		try {
+			const fp = makeFakePi();
+			const { factory } = makeFakeWatchFactory();
+			// biome-ignore lint/suspicious/noExplicitAny: test fake
+			makeExtension({ watchFactory: factory, debounceMs: 10 })(fp as any);
+			await fp.fire("session_start", { type: "session_start", reason: "startup" }, { cwd: tmp });
+		} finally {
+			stderrSpy.mockRestore();
+		}
+		expect(lines.filter((l) => l.startsWith("[pi-rules] skipped"))).toEqual([
+			`[pi-rules] skipped .pi/rules/escape.md: symlink escape: ${realTarget}\n`,
+		]);
+		rmSync(tmp, { recursive: true, force: true });
+	});
+
 	it("scheduleReload (mid-session): re-emits warn lines after watcher fires", async () => {
 		const tmp = mkdtempSync(path.join(os.tmpdir(), "pi-rules-rt-"));
 		const dir = path.join(tmp, ".pi/rules");

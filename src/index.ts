@@ -171,6 +171,11 @@ export default makeExtension();
 
 function emitDiagnostic(cwd: string, d: Diagnostic): void {
 	if (d.kind === "skipped_no_frontmatter") return;
-	const reason = d.kind === "unreadable" ? `unreadable: ${d.code}` : d.reason;
+	const reason =
+		d.kind === "unreadable"
+			? `unreadable: ${d.code}`
+			: d.kind === "symlink_escape"
+				? `symlink escape: ${d.targetPath}`
+				: d.reason;
 	process.stderr.write(`[pi-rules] skipped ${path.relative(cwd, d.absPath)}: ${reason}\n`);
 }

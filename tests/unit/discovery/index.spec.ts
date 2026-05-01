@@ -241,6 +241,44 @@ describe("discover diagnostics contract (M01-S03)", () => {
 		await rm(tmp, { recursive: true });
 	});
 
+	it("returns symlink_escape when symlink resolves outside any rule root", async () => {
+		if (process.platform === "win32") return;
+		const tmp = await mkdtemp(path.join(os.tmpdir(), "pi-rules-diag-"));
+		const dir = path.join(tmp, ".pi/rules");
+		await mkdir(dir, { recursive: true });
+		const fs = await import("node:fs/promises");
+		const outsideTarget = path.join(tmp, "outside.md");
+		await writeFile(outsideTarget, '---\ndescription: x\nglobs: ["**/*"]\n---\n');
+		await fs.symlink(outsideTarget, path.join(dir, "escape.md"));
+		const { rules, diagnostics } = await discover(tmp, { home: "" });
+		expect(rules).toEqual([]);
+		expect(diagnostics).toHaveLength(1);
+		expect(diagnostics[0]).toMatchObject({
+			kind: "symlink_escape",
+			absPath: path.join(dir, "escape.md"),
+			source: "pi",
+		});
+		expect((diagnostics[0] as { kind: "symlink_escape"; targetPath: string }).targetPath).toBe(
+			await fs.realpath(outsideTarget),
+		);
+		await rm(tmp, { recursive: true });
+	});
+
+	it("AC3 cross-root symlink (claude → pi) still loads as one rule (no symlink_escape)", async () => {
+		if (process.platform === "win32") return;
+		const tmp = await mkdtemp(path.join(os.tmpdir(), "pi-rules-diag-"));
+		await mkdir(path.join(tmp, ".pi", "rules"), { recursive: true });
+		await mkdir(path.join(tmp, ".claude", "rules"), { recursive: true });
+		const fs = await import("node:fs/promises");
+		const target = path.join(tmp, ".pi", "rules", "x.md");
+		await writeFile(target, '---\ndescription: d\nglobs: ["**"]\n---\nbody\n');
+		await fs.symlink(target, path.join(tmp, ".claude", "rules", "x.md"));
+		const { rules, diagnostics } = await discover(tmp, { home: "" });
+		expect(rules).toHaveLength(1);
+		expect(diagnostics).toEqual([]);
+		await rm(tmp, { recursive: true });
+	});
+
 	it("does NOT write to stderr (diagnostics are returned, not logged)", async () => {
 		const tmp = await mkdtemp(path.join(os.tmpdir(), "pi-rules-diag-"));
 		const dir = path.join(tmp, ".pi/rules");
