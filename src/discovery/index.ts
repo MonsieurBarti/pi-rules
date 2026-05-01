@@ -1,15 +1,25 @@
 import { realpath, stat } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { parseRuleFile } from "./parse.js";
 import { type Rule, type Source, isParseFailure } from "./types.js";
 import { enumerateRuleFiles } from "./walker.js";
 
 export type { Rule, Source } from "./types.js";
+export type DiscoverOptions = { home?: string };
 
 type RootSpec = { root: string; source: Source };
 
-export async function discover(cwd: string): Promise<Rule[]> {
+export async function discover(cwd: string, opts?: DiscoverOptions): Promise<Rule[]> {
+	const home = opts?.home !== undefined ? opts.home : os.homedir();
+	const userRoots: RootSpec[] = home
+		? [
+				{ root: path.join(home, ".pi/rules"), source: "pi" },
+				{ root: path.join(home, ".claude/rules"), source: "claude" },
+			]
+		: [];
 	const roots: RootSpec[] = [
+		...userRoots,
 		{ root: path.join(cwd, ".pi/rules"), source: "pi" },
 		{ root: path.join(cwd, ".claude/rules"), source: "claude" },
 	];
