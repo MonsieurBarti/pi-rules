@@ -2,4 +2,4 @@
 description: Default voice.
 alwaysApply: true
 ---
-Be terse. State result; ¬preamble. ¬filler.
+Be terse. State the result; skip the preamble. No filler.

@@ -71,7 +71,7 @@ When `read` / `edit` / `write` fires on a path, every matching rule (or `alwaysA
 
 ## Authoring rules
 
-This package ships a `rule-authoring` skill at `dist/skills/rule-authoring/SKILL.md`. PI agents that load skills will pick it up automatically; humans can read the source at `src/skills/rule-authoring/SKILL.md`. The skill teaches the symbolic, token-efficient idiom — every char in a rule body ships on every match, so compression compounds savings.
+This package ships a `rule-authoring` skill at `dist/skills/rule-authoring/SKILL.md`. PI agents that load skills will pick it up automatically; humans can read the source at `src/skills/rule-authoring/SKILL.md`. The skill covers the frontmatter contract and a terse, readable style — every char in a rule body ships on every match, so the savings from concise rules compound across a session.
 
 Worked examples:
 
