@@ -21,11 +21,11 @@ describe("S02 → S03 integration", () => {
 		await mkdir(path.join(cwd, ".pi", "rules"), { recursive: true });
 		await writeFile(
 			path.join(cwd, ".pi", "rules", "src.md"),
-			'---\ndescription: src rule\nglobs: ["src/**"]\nalwaysApply: false\n---\nbody-src\n',
+			'---\ndescription: src rule\npaths: ["src/**"]\n---\nbody-src\n',
 		);
 		await writeFile(
 			path.join(cwd, ".pi", "rules", "always.md"),
-			"---\ndescription: always rule\nalwaysApply: true\n---\nbody-always\n",
+			"---\ndescription: always rule\n---\nbody-always\n",
 		);
 
 		const { rules } = await discover(cwd);

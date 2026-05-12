@@ -1,6 +1,6 @@
 ---
 description: Merge — project side.
-globs: ["src/**/*.ts"]
-alwaysApply: false
+paths:
+  - "src/**/*.ts"
 ---
 MERGE_PROJECT_BODY

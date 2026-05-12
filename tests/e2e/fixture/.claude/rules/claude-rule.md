@@ -1,6 +1,6 @@
 ---
 description: Claude-side scoped rule for docs/.
-globs: ["docs/**"]
-alwaysApply: false
+paths:
+  - "docs/**"
 ---
 CLAUDE

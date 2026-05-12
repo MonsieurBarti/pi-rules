@@ -8,8 +8,7 @@ const rule = (overrides: Partial<Rule> = {}): Rule => ({
 	sourcePath: "/abs/.pi/rules/a.md",
 	source: "pi",
 	description: "d",
-	globs: ["**/*.ts"],
-	alwaysApply: false,
+	paths: ["**/*.ts"],
 	body: "B",
 	...overrides,
 });
@@ -21,8 +20,8 @@ describe("format(DiscoverResult)", () => {
 			"pi-rules doctor: OK — 0 rules, 0 errors, 0 skipped\n\n" +
 				"Coverage:\n" +
 				"  total rules:    0\n" +
-				"  alwaysApply:    0\n" +
-				"  glob-scoped:    0\n" +
+				"  always-on:      0\n" +
+				"  path-scoped:    0\n" +
 				"  sources:        pi=0, claude=0",
 		);
 	});
@@ -35,8 +34,7 @@ describe("format(DiscoverResult)", () => {
 					id: "/abs/.claude/rules/b.md",
 					sourcePath: "/abs/.claude/rules/b.md",
 					source: "claude",
-					alwaysApply: true,
-					globs: [],
+					paths: [],
 				}),
 			],
 			diagnostics: [],
@@ -45,15 +43,14 @@ describe("format(DiscoverResult)", () => {
 			"pi-rules doctor: OK — 2 rules, 0 errors, 0 skipped\n\n" +
 				"Rules:\n" +
 				"  [pi] /abs/.pi/rules/a.md\n" +
-				"             globs: **/*.ts\n" +
-				"             alwaysApply: false\n" +
+				"             paths: **/*.ts\n" +
 				"  [claude] /abs/.claude/rules/b.md\n" +
-				"             globs: (none)\n" +
-				"             alwaysApply: true\n\n" +
+				"             paths: (none — always-on)\n" +
+				"\n" +
 				"Coverage:\n" +
 				"  total rules:    2\n" +
-				"  alwaysApply:    1\n" +
-				"  glob-scoped:    1\n" +
+				"  always-on:      1\n" +
+				"  path-scoped:    1\n" +
 				"  sources:        pi=1, claude=1",
 		);
 	});
@@ -97,8 +94,8 @@ describe("format(DiscoverResult)", () => {
 				"    unreadable: EACCES\n\n" +
 				"Coverage:\n" +
 				"  total rules:    0\n" +
-				"  alwaysApply:    0\n" +
-				"  glob-scoped:    0\n" +
+				"  always-on:      0\n" +
+				"  path-scoped:    0\n" +
 				"  sources:        pi=0, claude=0",
 		);
 	});
@@ -120,8 +117,8 @@ describe("format(DiscoverResult)", () => {
 				"  /abs/.pi/rules/plain.md\n\n" +
 				"Coverage:\n" +
 				"  total rules:    0\n" +
-				"  alwaysApply:    0\n" +
-				"  glob-scoped:    0\n" +
+				"  always-on:      0\n" +
+				"  path-scoped:    0\n" +
 				"  sources:        pi=0, claude=0",
 		);
 	});
@@ -213,8 +210,8 @@ describe("format(DiscoverResult) — symlink_escape", () => {
 				"    symlink escape: /etc/passwd\n\n" +
 				"Coverage:\n" +
 				"  total rules:    0\n" +
-				"  alwaysApply:    0\n" +
-				"  glob-scoped:    0\n" +
+				"  always-on:      0\n" +
+				"  path-scoped:    0\n" +
 				"  sources:        pi=0, claude=0",
 		);
 	});

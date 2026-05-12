@@ -41,8 +41,8 @@ function makeFakeWatchFactory() {
 	return { factory, created };
 }
 
-function writeRule(dir: string, name: string, globs: string[], body: string): void {
-	const front = `---\ndescription: t\nglobs: ${JSON.stringify(globs)}\n---\n`;
+function writeRule(dir: string, name: string, paths: string[], body: string): void {
+	const front = `---\ndescription: t\npaths: ${JSON.stringify(paths)}\n---\n`;
 	writeFileSync(path.join(dir, ".pi", "rules", name), front + body);
 }
 

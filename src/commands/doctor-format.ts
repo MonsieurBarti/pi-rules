@@ -38,8 +38,7 @@ function formatRules(rules: Rule[]): string {
 	const lines: string[] = ["Rules:"];
 	for (const r of rules) {
 		lines.push(`  [${r.source}] ${r.sourcePath}`);
-		lines.push(`             globs: ${r.globs.length === 0 ? "(none)" : r.globs.join(",")}`);
-		lines.push(`             alwaysApply: ${r.alwaysApply}`);
+		lines.push(`             paths: ${r.paths.length === 0 ? "(none — always-on)" : r.paths.join(",")}`);
 		if (r.id !== r.sourcePath) {
 			lines.push(`             → ${r.id}`);
 		}
@@ -72,14 +71,14 @@ function formatSkipped(
 
 function formatCoverage(result: DiscoverResult): string {
 	const total = result.rules.length;
-	const always = result.rules.filter((r) => r.alwaysApply).length;
+	const always = result.rules.filter((r) => r.paths.length === 0).length;
 	const piCount = result.rules.filter((r) => r.source === "pi").length;
 	const claudeCount = result.rules.filter((r) => r.source === "claude").length;
 	return [
 		"Coverage:",
 		`  total rules:    ${total}`,
-		`  alwaysApply:    ${always}`,
-		`  glob-scoped:    ${total - always}`,
+		`  always-on:      ${always}`,
+		`  path-scoped:    ${total - always}`,
 		`  sources:        pi=${piCount}, claude=${claudeCount}`,
 	].join("\n");
 }

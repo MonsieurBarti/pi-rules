@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Breaking Changes
+
+* **Frontmatter aligned with Claude Code**: `globs` replaced by `paths`, `alwaysApply` removed.
+  - `paths` accepts `string` (comma-separated), `string[]` (YAML array), or can be omitted for always-on rules.
+  - Legacy `globs` field is still parsed with a deprecation warning.
+  - Legacy `alwaysApply` field is ignored with a deprecation warning.
+  - Rule files without `paths` / `globs` are now always-on (injected on every `read`/`edit`/`write`).
+
 ## [0.0.3](https://github.com/MonsieurBarti/pi-rules/compare/pi-rules-v0.0.2...pi-rules-v0.0.3) (2026-05-01)
 
 

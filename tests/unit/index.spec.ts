@@ -6,10 +6,10 @@ import piRulesExtension, { makeExtension } from "../../src/index.js";
 import { clearInjectionLog, injectionLog } from "../../src/testing/injection-log.js";
 import { makeFakePi } from "../_helpers/fake-pi.js";
 
-function mkFixtureWithPiRule(globs: string[], body = "RULE_BODY"): string {
+function mkFixtureWithPiRule(paths: string[], body = "RULE_BODY"): string {
 	const dir = mkdtempSync(path.join(os.tmpdir(), "pi-rules-s04-"));
 	mkdirSync(path.join(dir, ".pi", "rules"), { recursive: true });
-	const front = `---\ndescription: t\nglobs: ${JSON.stringify(globs)}\n---\n`;
+	const front = `---\ndescription: t\npaths: ${JSON.stringify(paths)}\n---\n`;
 	writeFileSync(path.join(dir, ".pi", "rules", "r.md"), front + body);
 	return dir;
 }
@@ -301,11 +301,11 @@ describe("piRulesExtension — tool_result", () => {
 		mkdirSync(path.join(dir, ".claude", "rules"), { recursive: true });
 		writeFileSync(
 			path.join(dir, ".pi", "rules", "p.md"),
-			'---\ndescription: p\nglobs: ["**"]\n---\nPI_BODY',
+			'---\ndescription: p\npaths: ["**"]\n---\nPI_BODY',
 		);
 		writeFileSync(
 			path.join(dir, ".claude", "rules", "c.md"),
-			'---\ndescription: c\nglobs: ["**"]\n---\nCLAUDE_BODY',
+			'---\ndescription: c\npaths: ["**"]\n---\nCLAUDE_BODY',
 		);
 		const fp = makeFakePi();
 		piRulesExtension(fp as any);
@@ -351,11 +351,11 @@ describe("piRulesExtension — tool_result", () => {
 		mkdirSync(path.join(dir, ".pi", "rules"), { recursive: true });
 		writeFileSync(
 			path.join(dir, ".pi", "rules", "a.md"),
-			'---\ndescription: a\nglobs: ["src/**"]\n---\nA_BODY',
+			'---\ndescription: a\npaths: ["src/**"]\n---\nA_BODY',
 		);
 		writeFileSync(
 			path.join(dir, ".pi", "rules", "b.md"),
-			'---\ndescription: b\nglobs: ["src/a.ts"]\n---\nB_BODY',
+			'---\ndescription: b\npaths: ["src/a.ts"]\n---\nB_BODY',
 		);
 		const fp = makeFakePi();
 		piRulesExtension(fp as any);
@@ -412,15 +412,15 @@ describe("piRulesExtension — integration smoke (AC12)", () => {
 		mkdirSync(path.join(dir, ".claude", "rules"), { recursive: true });
 		writeFileSync(
 			path.join(dir, ".pi", "rules", "pi-rule.md"),
-			'---\ndescription: pi\nglobs: ["src/**"]\n---\nPI_BODY',
+			'---\ndescription: pi\npaths: ["src/**"]\n---\nPI_BODY',
 		);
 		writeFileSync(
 			path.join(dir, ".pi", "rules", "always.md"),
-			"---\ndescription: a\nalwaysApply: true\n---\nALWAYS_BODY",
+			"---\ndescription: a\n\n---\nALWAYS_BODY",
 		);
 		writeFileSync(
 			path.join(dir, ".claude", "rules", "claude-rule.md"),
-			'---\ndescription: cl\nglobs: ["docs/**"]\n---\nCLAUDE_BODY',
+			'---\ndescription: cl\npaths: ["docs/**"]\n---\nCLAUDE_BODY',
 		);
 	});
 	afterEach(() => {
@@ -506,7 +506,7 @@ describe("runtime stderr parity (M01-S03)", () => {
 		const tmp = mkdtempSync(path.join(os.tmpdir(), "pi-rules-rt-"));
 		const dir = path.join(tmp, ".pi/rules");
 		mkdirSync(dir, { recursive: true });
-		writeFileSync(path.join(dir, "no-desc.md"), '---\nglobs: ["**/*"]\n---\n');
+		writeFileSync(path.join(dir, "no-desc.md"), '---\npaths: ["**/*"]\n---\n');
 		writeFileSync(path.join(dir, "plain.md"), "no frontmatter\n");
 
 		const lines: string[] = [];
@@ -564,7 +564,7 @@ describe("runtime stderr parity (M01-S03)", () => {
 		mkdirSync(dir, { recursive: true });
 		const fs = await import("node:fs/promises");
 		const outsideTarget = path.join(tmp, "outside.md");
-		writeFileSync(outsideTarget, '---\ndescription: x\nglobs: ["**/*"]\n---\n');
+		writeFileSync(outsideTarget, '---\ndescription: x\npaths: ["**/*"]\n---\n');
 		await fs.symlink(outsideTarget, path.join(dir, "escape.md"));
 		const realTarget = await fs.realpath(outsideTarget);
 		const lines: string[] = [];
@@ -591,14 +591,14 @@ describe("runtime stderr parity (M01-S03)", () => {
 		const tmp = mkdtempSync(path.join(os.tmpdir(), "pi-rules-rt-"));
 		const dir = path.join(tmp, ".pi/rules");
 		mkdirSync(dir, { recursive: true });
-		writeFileSync(path.join(dir, "good.md"), '---\ndescription: g\nglobs: ["**/*"]\n---\n');
+		writeFileSync(path.join(dir, "good.md"), '---\ndescription: g\npaths: ["**/*"]\n---\n');
 		const fp = makeFakePi();
 		const { factory, created } = makeFakeWatchFactory();
 		// biome-ignore lint/suspicious/noExplicitAny: test fake
 		makeExtension({ watchFactory: factory, debounceMs: 10 })(fp as any);
 		await fp.fire("session_start", { type: "session_start", reason: "startup" }, { cwd: tmp });
 
-		writeFileSync(path.join(dir, "bad.md"), '---\nglobs: ["**/*"]\n---\n');
+		writeFileSync(path.join(dir, "bad.md"), '---\npaths: ["**/*"]\n---\n');
 		const lines: string[] = [];
 		const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation((chunk: unknown) => {
 			lines.push(String(chunk));

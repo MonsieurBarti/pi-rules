@@ -12,7 +12,7 @@ afterEach(async () => {
 	await rm(cwd, { recursive: true, force: true });
 });
 
-const VALID_FM = `---\ndescription: D\nglobs: ["**"]\n---\nbody\n`;
+const VALID_FM = `---\ndescription: D\npaths: ["**"]\n---\nbody\n`;
 
 describe("discover happy path", () => {
 	it("AC2a: returns rules from both roots, tagged by source", async () => {
@@ -122,7 +122,7 @@ describe("discover diagnostics contract (M01-S03)", () => {
 		const tmp = await mkdtemp(path.join(os.tmpdir(), "pi-rules-diag-"));
 		const dir = path.join(tmp, ".pi/rules");
 		await mkdir(dir, { recursive: true });
-		await writeFile(path.join(dir, "no-desc.md"), '---\nglobs: ["**/*"]\n---\nbody\n');
+		await writeFile(path.join(dir, "no-desc.md"), '---\npaths: ["**/*"]\n---\nbody\n');
 		const { rules, diagnostics } = await discover(tmp, { home: "" });
 		expect(rules).toEqual([]);
 		expect(diagnostics).toHaveLength(1);
@@ -156,7 +156,7 @@ describe("discover diagnostics contract (M01-S03)", () => {
 		const tmp = await mkdtemp(path.join(os.tmpdir(), "pi-rules-diag-"));
 		const dir = path.join(tmp, ".pi/rules");
 		await mkdir(dir, { recursive: true });
-		await writeFile(path.join(dir, "x.md"), '---\ndescription: a\nglobs: ["**/*"]\n---\n');
+		await writeFile(path.join(dir, "x.md"), '---\ndescription: a\npaths: ["**/*"]\n---\n');
 		const parseMod = await import("../../../src/discovery/parse.js");
 		const spy = vi.spyOn(parseMod, "parseRuleFile").mockResolvedValueOnce({
 			kind: "parse-failure",
@@ -202,13 +202,13 @@ describe("discover diagnostics contract (M01-S03)", () => {
 		await mkdir(dir, { recursive: true });
 		await writeFile(
 			path.join(dir, "a.md"),
-			'---\ndescription: alpha\nglobs: ["src/**"]\n---\nA-body\n',
+			'---\ndescription: alpha\npaths: ["src/**"]\n---\nA-body\n',
 		);
 		await writeFile(path.join(dir, "no-fm.md"), "no frontmatter\n");
-		await writeFile(path.join(dir, "bad.md"), "---\ndescription: bad\nglobs: 99\n---\n");
+		await writeFile(path.join(dir, "bad.md"), "---\ndescription: bad\npaths: 99\n---\n");
 		await writeFile(
 			path.join(dir, "b.md"),
-			"---\ndescription: beta\nalwaysApply: true\n---\nB-body\n",
+			"---\ndescription: beta\n---\nB-body\n",
 		);
 		const { rules, diagnostics } = await discover(tmp, { home: "" });
 		const fs = await import("node:fs/promises");
@@ -220,16 +220,14 @@ describe("discover diagnostics contract (M01-S03)", () => {
 		expect(ruleA).toMatchObject({
 			source: "pi",
 			description: "alpha",
-			globs: ["src/**"],
-			alwaysApply: false,
+			paths: ["src/**"],
 			body: "A-body\n",
 		});
 		expect(ruleA?.id).toBe(await fs.realpath(path.join(dir, "a.md")));
 		expect(ruleB).toMatchObject({
 			source: "pi",
 			description: "beta",
-			globs: [],
-			alwaysApply: true,
+			paths: [],
 			body: "B-body\n",
 		});
 		expect(ruleB?.id).toBe(await fs.realpath(path.join(dir, "b.md")));
@@ -248,7 +246,7 @@ describe("discover diagnostics contract (M01-S03)", () => {
 		await mkdir(dir, { recursive: true });
 		const fs = await import("node:fs/promises");
 		const outsideTarget = path.join(tmp, "outside.md");
-		await writeFile(outsideTarget, '---\ndescription: x\nglobs: ["**/*"]\n---\n');
+		await writeFile(outsideTarget, '---\ndescription: x\npaths: ["**/*"]\n---\n');
 		await fs.symlink(outsideTarget, path.join(dir, "escape.md"));
 		const { rules, diagnostics } = await discover(tmp, { home: "" });
 		expect(rules).toEqual([]);
@@ -271,7 +269,7 @@ describe("discover diagnostics contract (M01-S03)", () => {
 		await mkdir(path.join(tmp, ".claude", "rules"), { recursive: true });
 		const fs = await import("node:fs/promises");
 		const target = path.join(tmp, ".pi", "rules", "x.md");
-		await writeFile(target, '---\ndescription: d\nglobs: ["**"]\n---\nbody\n');
+		await writeFile(target, '---\ndescription: d\npaths: ["**"]\n---\nbody\n');
 		await fs.symlink(target, path.join(tmp, ".claude", "rules", "x.md"));
 		const { rules, diagnostics } = await discover(tmp, { home: "" });
 		expect(rules).toHaveLength(1);
@@ -283,7 +281,7 @@ describe("discover diagnostics contract (M01-S03)", () => {
 		const tmp = await mkdtemp(path.join(os.tmpdir(), "pi-rules-diag-"));
 		const dir = path.join(tmp, ".pi/rules");
 		await mkdir(dir, { recursive: true });
-		await writeFile(path.join(dir, "no-desc.md"), '---\nglobs: ["**/*"]\n---\n');
+		await writeFile(path.join(dir, "no-desc.md"), '---\npaths: ["**/*"]\n---\n');
 		const lines: string[] = [];
 		const orig = process.stderr.write.bind(process.stderr);
 		// biome-ignore lint/suspicious/noExplicitAny: stderr spy

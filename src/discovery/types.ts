@@ -5,8 +5,7 @@ export type Rule = {
 	sourcePath: string;
 	source: Source;
 	description: string;
-	globs: string[];
-	alwaysApply: boolean;
+	paths: string[];
 	body: string;
 };
 
