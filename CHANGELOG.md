@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.0](https://github.com/MonsieurBarti/pi-rules/compare/pi-rules-v0.0.3...pi-rules-v0.1.0) (2026-05-12)
+
+
+### ⚠ BREAKING CHANGES
+
+* 
+
+### Features
+
+* align rule frontmatter with Claude Code (paths instead of globs) ([1c98484](https://github.com/MonsieurBarti/pi-rules/commit/1c98484abfc83e0865d345847ea1f60149bb4335))
+* align rule frontmatter with Claude Code (paths instead of globs) ([e7962b7](https://github.com/MonsieurBarti/pi-rules/commit/e7962b7f3436199fcdb0297722597080a9cae03e))
+
 ## [Unreleased]
 
 ### Breaking Changes
