@@ -7,8 +7,7 @@ const rule = (id: string, body: string): Rule => ({
 	sourcePath: id,
 	source: "pi",
 	description: "t",
-	globs: ["**/*"],
-	alwaysApply: false,
+	paths: ["**/*"],
 	body,
 });
 

@@ -4,6 +4,21 @@ import type { ParseFailure, Rule, Source } from "./types.js";
 
 const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/;
 
+function normalizePathSpec(raw: unknown, fieldName: string): string[] | ParseFailure {
+	if (raw === undefined || raw === null) return [];
+	if (typeof raw === "string") {
+		if (raw.length === 0) return [];
+		return raw.split(",").map((s) => s.trim()).filter((s) => s.length > 0);
+	}
+	if (Array.isArray(raw)) {
+		if (!raw.every((g) => typeof g === "string")) {
+			return { kind: "parse-failure", reason: `${fieldName} must be string or string[]` };
+		}
+		return (raw as string[]).map((s) => s.trim()).filter((s) => s.length > 0);
+	}
+	return { kind: "parse-failure", reason: `${fieldName} must be string or string[]` };
+}
+
 export async function parseRuleFile(absPath: string, source: Source): Promise<Rule | ParseFailure> {
 	let content: string;
 	try {
@@ -31,27 +46,33 @@ export async function parseRuleFile(absPath: string, source: Source): Promise<Ru
 		return { kind: "parse-failure", reason: "missing description" };
 	}
 
-	const alwaysApply = rec.alwaysApply === true;
+	// Warn about deprecated alwaysApply field
+	if (rec.alwaysApply !== undefined) {
+		process.stderr.write(
+			`[pi-rules] ${JSON.stringify(absPath)}: alwaysApply is deprecated; use paths absence for always-on rules\n`,
+		);
+	}
 
-	let globs: string[];
-	if (rec.globs === undefined) {
-		if (alwaysApply) {
-			globs = [];
-		} else {
-			return {
-				kind: "parse-failure",
-				reason: "globs required when alwaysApply is not true",
-			};
-		}
-	} else if (!Array.isArray(rec.globs) || !rec.globs.every((g) => typeof g === "string")) {
-		return { kind: "parse-failure", reason: "globs must be string[]" };
-	} else if (rec.globs.length === 0 && !alwaysApply) {
-		return {
-			kind: "parse-failure",
-			reason: "globs required when alwaysApply is not true",
-		};
+	let paths: string[];
+	let usedFallback = false;
+
+	if (rec.paths !== undefined) {
+		const result = normalizePathSpec(rec.paths, "paths");
+		if ("kind" in result) return result;
+		paths = result;
+	} else if (rec.globs !== undefined) {
+		const result = normalizePathSpec(rec.globs, "globs");
+		if ("kind" in result) return result;
+		paths = result;
+		usedFallback = true;
 	} else {
-		globs = rec.globs as string[];
+		paths = [];
+	}
+
+	if (usedFallback) {
+		process.stderr.write(
+			`[pi-rules] ${JSON.stringify(absPath)}: globs is deprecated; use paths instead\n`,
+		);
 	}
 
 	const body = content.slice(match[0].length).replace(/^\n/, "");
@@ -61,8 +82,7 @@ export async function parseRuleFile(absPath: string, source: Source): Promise<Ru
 		sourcePath: absPath,
 		source,
 		description: rec.description,
-		globs,
-		alwaysApply,
+		paths,
 		body,
 	};
 }

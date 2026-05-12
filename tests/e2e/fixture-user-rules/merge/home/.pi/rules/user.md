@@ -1,6 +1,6 @@
 ---
 description: Merge — user side.
-globs: ["src/**/*.ts"]
-alwaysApply: false
+paths:
+  - "src/**/*.ts"
 ---
 MERGE_USER_BODY

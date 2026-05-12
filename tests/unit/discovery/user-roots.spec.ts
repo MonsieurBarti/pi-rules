@@ -15,8 +15,8 @@ afterEach(async () => {
 	await rm(home, { recursive: true, force: true });
 });
 
-const VALID_FM = `---\ndescription: D\nglobs: ["**"]\n---\nbody\n`;
-const ALWAYS_FM = "---\ndescription: D\nalwaysApply: true\n---\nbody\n";
+const VALID_FM = `---\ndescription: D\npaths: ["**"]\n---\nbody\n`;
+const ALWAYS_FM = "---\ndescription: D\n---\nbody\n";
 
 describe("user-root discovery (AC1)", () => {
 	it("AC1a: discovers rules from ~/.pi/rules and ~/.claude/rules", async () => {
@@ -55,13 +55,13 @@ describe("user-root discovery (AC1)", () => {
 		expect(rules[0]?.sourcePath).toBe(path.join(cwd, ".pi", "rules", "p.md"));
 	});
 
-	it("AC1d: alwaysApply: true preserved on user rules", async () => {
+	it("AC1d: always-on rule (no paths) on user side", async () => {
 		await mkdir(path.join(home, ".pi", "rules"), { recursive: true });
 		await writeFile(path.join(home, ".pi", "rules", "always.md"), ALWAYS_FM);
 
 		const { rules } = await discover(cwd, { home });
 		expect(rules).toHaveLength(1);
-		expect(rules[0]?.alwaysApply).toBe(true);
+		expect(rules[0]?.paths).toEqual([]);
 	});
 
 	it("home empty string skips user roots entirely", async () => {

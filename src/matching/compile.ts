@@ -4,16 +4,16 @@ import type { Rule } from "../discovery/index.js";
 const OPTS = { dot: true, nonegate: true } as const;
 
 export function compileRule(rule: Rule): (rel: string) => boolean {
-	if (rule.alwaysApply) return () => true;
+	if (rule.paths.length === 0) return () => true;
 
 	const survivors: string[] = [];
-	for (const g of rule.globs) {
+	for (const p of rule.paths) {
 		try {
-			picomatch.makeRe(g, { ...OPTS, debug: true });
-			survivors.push(g);
+			picomatch.makeRe(p, { ...OPTS, debug: true });
+			survivors.push(p);
 		} catch {
 			process.stderr.write(
-				`[pi-rules] invalid glob in ${JSON.stringify(rule.sourcePath)}: ${JSON.stringify(g)} -- never matches\n`,
+				`[pi-rules] invalid glob in ${JSON.stringify(rule.sourcePath)}: ${JSON.stringify(p)} -- never matches\n`,
 			);
 		}
 	}

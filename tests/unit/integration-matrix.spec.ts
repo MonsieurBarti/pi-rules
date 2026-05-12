@@ -45,7 +45,7 @@ describe("integration matrix — gap fillers (S02–S04)", () => {
 			mkdirSync(path.join(dir, ".claude", "rules"), { recursive: true });
 			writeFileSync(
 				path.join(dir, ".pi", "rules", "shared.md"),
-				'---\ndescription: shared\nglobs: ["src/**"]\n---\nSHARED_BODY',
+				'---\ndescription: shared\npaths: ["src/**"]\n---\nSHARED_BODY',
 			);
 			// Relative target so the symlink resolves regardless of where tmpdir lives.
 			symlinkSync(
@@ -74,12 +74,12 @@ describe("integration matrix — gap fillers (S02–S04)", () => {
 		mkdirSync(path.join(dir, ".pi", "rules"), { recursive: true });
 		writeFileSync(
 			path.join(dir, ".pi", "rules", "valid.md"),
-			'---\ndescription: ok\nglobs: ["src/**"]\n---\nVALID',
+			'---\ndescription: ok\npaths: ["src/**"]\n---\nVALID',
 		);
 		// Malformed YAML — unclosed sequence — surfaces a parse failure.
 		writeFileSync(
 			path.join(dir, ".pi", "rules", "invalid.md"),
-			"---\ndescription: bad\nglobs: [unclosed\n---\nBODY",
+			"---\ndescription: bad\npaths: [unclosed\n---\nBODY",
 		);
 
 		const stderrSpy = vi.spyOn(process.stderr, "write").mockReturnValue(true);
@@ -111,7 +111,7 @@ describe("integration matrix — gap fillers (S02–S04)", () => {
 			mkdirSync(path.join(dir, ".pi", "rules"), { recursive: true });
 			writeFileSync(
 				path.join(dir, ".pi", "rules", "x.md"),
-				'---\ndescription: pi\nglobs: ["src/**"]\n---\nX_BODY',
+				'---\ndescription: pi\npaths: ["src/**"]\n---\nX_BODY',
 			);
 
 			const fp = makeFakePi();
@@ -129,7 +129,7 @@ describe("integration matrix — gap fillers (S02–S04)", () => {
 			mkdirSync(path.join(dir, ".claude", "rules"), { recursive: true });
 			writeFileSync(
 				path.join(dir, ".claude", "rules", "y.md"),
-				'---\ndescription: cl\nglobs: ["src/**"]\n---\nY_BODY',
+				'---\ndescription: cl\npaths: ["src/**"]\n---\nY_BODY',
 			);
 
 			const fp = makeFakePi();

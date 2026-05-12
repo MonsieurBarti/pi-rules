@@ -7,8 +7,7 @@ const rule = (id: string, overrides: Partial<Rule> = {}): Rule => ({
 	sourcePath: `/abs/${id}.md`,
 	source: "pi",
 	description: id,
-	globs: [],
-	alwaysApply: false,
+	paths: [],
 	body: "",
 	...overrides,
 });
@@ -27,19 +26,19 @@ describe("compileMatcher — public surface", () => {
 
 describe("compileMatcher — defensive guards", () => {
 	it("AC6d: returns [] when cwd is empty string", () => {
-		const r = rule("r", { alwaysApply: true });
+		const r = rule("r", { paths: [] });
 		const m = compileMatcher([r]);
 		expect(m.match("/abs/src/a.ts", "")).toEqual([]);
 	});
 
 	it("AC6e: returns [] when absPath is not absolute", () => {
-		const r = rule("r", { alwaysApply: true });
+		const r = rule("r", { paths: [] });
 		const m = compileMatcher([r]);
 		expect(m.match("src/a.ts", "/cwd")).toEqual([]);
 	});
 
-	it("AC4c: alwaysApply rule still returns [] for paths outside cwd", () => {
-		const r = rule("r", { alwaysApply: true });
+	it("AC4c: always-on rule still returns [] for paths outside cwd", () => {
+		const r = rule("r", { paths: [] });
 		const m = compileMatcher([r]);
 		expect(m.match("/outside/x.ts", "/cwd")).toEqual([]);
 	});
@@ -47,16 +46,16 @@ describe("compileMatcher — defensive guards", () => {
 
 describe("compileMatcher — matching", () => {
 	it("returns matching rules for paths inside cwd", () => {
-		const a = rule("a", { globs: ["src/**"] });
+		const a = rule("a", { paths: ["src/**"] });
 		const m = compileMatcher([a]);
 		expect(m.match("/cwd/src/x.ts", "/cwd")).toEqual([a]);
 		expect(m.match("/cwd/docs/x.md", "/cwd")).toEqual([]);
 	});
 
 	it("AC7: returns rules in input order", () => {
-		const a = rule("a", { globs: ["**/*.ts"] });
-		const b = rule("b", { globs: ["docs/**"] });
-		const c = rule("c", { globs: ["src/**"] });
+		const a = rule("a", { paths: ["**/*.ts"] });
+		const b = rule("b", { paths: ["docs/**"] });
+		const c = rule("c", { paths: ["src/**"] });
 		const m = compileMatcher([a, b, c]);
 		expect(m.match("/cwd/src/x.ts", "/cwd")).toEqual([a, c]);
 	});

@@ -14,36 +14,45 @@ afterEach(async () => {
 });
 
 describe("parseRuleFile happy path", () => {
-	it("parses description + globs + alwaysApply default", async () => {
+	it("parses description + paths", async () => {
 		const file = path.join(dir, "r.md");
 		await writeFile(
 			file,
-			`---\ndescription: Style for TS\nglobs: ["src/**/*.ts"]\n---\nUse strict mode.\n`,
+			`---\ndescription: Style for TS\npaths: ["src/**/*.ts"]\n---\nUse strict mode.\n`,
 		);
 		const result = await parseRuleFile(file, "pi");
 		expect(isParseFailure(result)).toBe(false);
 		if (isParseFailure(result)) return;
 		expect(result.description).toBe("Style for TS");
-		expect(result.globs).toEqual(["src/**/*.ts"]);
-		expect(result.alwaysApply).toBe(false);
+		expect(result.paths).toEqual(["src/**/*.ts"]);
 		expect(result.source).toBe("pi");
 		expect(result.sourcePath).toBe(file);
 		expect(result.body).toBe("Use strict mode.\n");
 	});
 
-	it("AC6: alwaysApply true with no globs defaults to []", async () => {
-		const file = path.join(dir, "always.md");
-		await writeFile(file, "---\ndescription: Always\nalwaysApply: true\n---\nBody.\n");
+	it("parses comma-separated paths string", async () => {
+		const file = path.join(dir, "csv.md");
+		await writeFile(
+			file,
+			`---\ndescription: CSV\npaths: "src/**/*.ts, lib/**/*.ts"\n---\nBody.\n`,
+		);
 		const result = await parseRuleFile(file, "pi");
 		if (isParseFailure(result)) throw new Error(`unexpected: ${result.reason}`);
-		expect(result.alwaysApply).toBe(true);
-		expect(result.globs).toEqual([]);
+		expect(result.paths).toEqual(["src/**/*.ts", "lib/**/*.ts"]);
+	});
+
+	it("no paths = always-on (paths defaults to [])", async () => {
+		const file = path.join(dir, "always.md");
+		await writeFile(file, "---\ndescription: Always\n---\nBody.\n");
+		const result = await parseRuleFile(file, "pi");
+		if (isParseFailure(result)) throw new Error(`unexpected: ${result.reason}`);
+		expect(result.paths).toEqual([]);
 	});
 
 	it("AC13: body preserved byte-for-byte modulo single leading newline", async () => {
 		const file = path.join(dir, "body.md");
 		const body = "First line.\n\n```ts\n---\ninside fence\n---\n```\n\nTrailing.\n";
-		await writeFile(file, `---\ndescription: B\nglobs: ["**"]\n---\n${body}`);
+		await writeFile(file, `---\ndescription: B\npaths: ["**"]\n---\n${body}`);
 		const result = await parseRuleFile(file, "pi");
 		if (isParseFailure(result)) throw new Error(`unexpected: ${result.reason}`);
 		expect(result.body).toBe(body);
@@ -71,28 +80,35 @@ describe("parseRuleFile failures", () => {
 
 	it("AC7c: missing description", async () => {
 		const file = path.join(dir, "no-desc.md");
-		await writeFile(file, `---\nglobs: ["a"]\n---\nbody\n`);
+		await writeFile(file, `---\npaths: ["a"]\n---\nbody\n`);
 		const result = await parseRuleFile(file, "pi");
 		expect(isParseFailure(result)).toBe(true);
 		if (!isParseFailure(result)) return;
 		expect(result.reason).toBe("missing description");
 	});
 
-	it("AC7d: empty globs with alwaysApply false", async () => {
-		const file = path.join(dir, "empty-globs.md");
-		await writeFile(file, "---\ndescription: D\nglobs: []\n---\nbody\n");
+	it("empty paths = always-on (paths defaults to [])", async () => {
+		const file = path.join(dir, "empty-paths.md");
+		await writeFile(file, "---\ndescription: D\npaths: []\n---\nbody\n");
 		const result = await parseRuleFile(file, "pi");
-		expect(isParseFailure(result)).toBe(true);
-		if (!isParseFailure(result)) return;
-		expect(result.reason).toBe("globs required when alwaysApply is not true");
+		if (isParseFailure(result)) throw new Error(`unexpected: ${result.reason}`);
+		expect(result.paths).toEqual([]);
 	});
 
-	it("AC7e: globs wrong type", async () => {
-		const file = path.join(dir, "wrong-globs.md");
-		await writeFile(file, "---\ndescription: D\nglobs: [1, 2]\n---\nbody\n");
+	it("paths wrong type (number array) fails", async () => {
+		const file = path.join(dir, "wrong-paths.md");
+		await writeFile(file, "---\ndescription: D\npaths: [1, 2]\n---\nbody\n");
 		const result = await parseRuleFile(file, "pi");
 		expect(isParseFailure(result)).toBe(true);
 		if (!isParseFailure(result)) return;
-		expect(result.reason).toBe("globs must be string[]");
+		expect(result.reason).toBe("paths must be string or string[]");
+	});
+
+	it("globs fallback still works with deprecation warning", async () => {
+		const file = path.join(dir, "legacy.md");
+		await writeFile(file, `---\ndescription: Legacy\nglobs: ["src/**"]\n---\nbody\n`);
+		const result = await parseRuleFile(file, "pi");
+		if (isParseFailure(result)) throw new Error(`unexpected: ${result.reason}`);
+		expect(result.paths).toEqual(["src/**"]);
 	});
 });

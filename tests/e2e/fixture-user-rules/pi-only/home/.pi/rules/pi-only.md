@@ -1,6 +1,6 @@
 ---
 description: User-pi rule for src/.
-globs: ["src/**/*.ts"]
-alwaysApply: false
+paths:
+  - "src/**/*.ts"
 ---
 USER_PI_BODY

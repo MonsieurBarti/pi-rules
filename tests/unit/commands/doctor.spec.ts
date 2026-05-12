@@ -32,7 +32,7 @@ describe("runDoctor", () => {
 	it("happy path: emits OK header via sendUserMessage", async () => {
 		await writeFile(
 			path.join(tmp, ".pi/rules/a.md"),
-			'---\ndescription: a\nglobs: ["**/*"]\n---\n',
+			'---\ndescription: a\npaths: ["**/*"]\n---\n',
 		);
 		const pi = makeFakePi();
 		// biome-ignore lint/suspicious/noExplicitAny: minimal pi shape for handler
@@ -42,7 +42,7 @@ describe("runDoctor", () => {
 	});
 
 	it("with parse_error: emits ERRORS header", async () => {
-		await writeFile(path.join(tmp, ".pi/rules/bad.md"), '---\nglobs: ["**/*"]\n---\n');
+		await writeFile(path.join(tmp, ".pi/rules/bad.md"), '---\npaths: ["**/*"]\n---\n');
 		const pi = makeFakePi();
 		// biome-ignore lint/suspicious/noExplicitAny: minimal pi shape
 		await runDoctor(pi as any, null, tmp);
@@ -71,7 +71,7 @@ describe("runDoctor", () => {
 	});
 
 	it("uiCtx with hasUI=true: notify(message, type) — type is 'error' on errored", async () => {
-		await writeFile(path.join(tmp, ".pi/rules/bad.md"), '---\nglobs: ["**/*"]\n---\n');
+		await writeFile(path.join(tmp, ".pi/rules/bad.md"), '---\npaths: ["**/*"]\n---\n');
 		const pi = makeFakePi();
 		const notify = vi.fn();
 		const uiCtx = { hasUI: true, ui: { notify } };
@@ -85,7 +85,7 @@ describe("runDoctor", () => {
 	it("uiCtx with hasUI=true ∧ no errors: notify type is 'info'", async () => {
 		await writeFile(
 			path.join(tmp, ".pi/rules/a.md"),
-			'---\ndescription: a\nglobs: ["**/*"]\n---\n',
+			'---\ndescription: a\npaths: ["**/*"]\n---\n',
 		);
 		const pi = makeFakePi();
 		const notify = vi.fn();
@@ -98,7 +98,7 @@ describe("runDoctor", () => {
 	it("uiCtx with hasUI=false: does NOT call notify; sendUserMessage still fires", async () => {
 		await writeFile(
 			path.join(tmp, ".pi/rules/a.md"),
-			'---\ndescription: a\nglobs: ["**/*"]\n---\n',
+			'---\ndescription: a\npaths: ["**/*"]\n---\n',
 		);
 		const pi = makeFakePi();
 		const notify = vi.fn();

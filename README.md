@@ -22,7 +22,7 @@
 
 ---
 
-PI extension that auto-loads path-scoped rule files from `.pi/rules/` and `.claude/rules/`. When the agent reads, edits, or writes a file, every rule whose `globs` match that path is injected into the context for that turn.
+PI extension that auto-loads path-scoped rule files from `.pi/rules/` and `.claude/rules/`. When the agent reads, edits, or writes a file, every rule whose `paths` match that path is injected into the context for that turn.
 
 ## Install
 
@@ -37,8 +37,8 @@ pi install npm:@the-forge-flow/pi-rules
 ```md
 ---
 description: TypeScript style for src/.
-globs: ["src/**/*.ts"]
-alwaysApply: false
+paths:
+  - "src/**/*.ts"
 ---
 Prefer named exports. Avoid `any`.
 ```
@@ -51,19 +51,20 @@ Prefer named exports. Avoid `any`.
 ```yaml
 ---
 description: Short summary
-globs: ["src/**/*.ts"]
-alwaysApply: false
+paths:
+  - "src/**/*.ts"
 ---
 Body markdown here. Injected verbatim when the rule fires.
 ```
 
 - `description` — required string.
-- `globs` — required `string[]` of picomatch-compatible, project-relative patterns, **unless** `alwaysApply: true`.
-- `alwaysApply` — optional boolean, default `false`.
+- `paths` — optional `string` or `string[]` of picomatch-compatible, project-relative patterns. **Omit** for always-on rules. Accepts a YAML array (`["src/**/*.ts"]`) or a comma-separated string (`"src/**/*.ts, lib/**/*.ts"`).
+
+The legacy `globs` field is still accepted with a deprecation warning, and the legacy `alwaysApply` field is ignored with a warning.
 
 ## Matching & injection
 
-When `read` / `edit` / `write` fires on a path, every matching rule (or `alwaysApply: true` rule) prepends its body to the tool's result for the next model turn. No precedence: all matching rules apply, in discovery order. Once-per-session dedup keyed by realpath.
+When `read` / `edit` / `write` fires on a path, every matching rule (or always-on rule with no `paths`) prepends its body to the tool's result for the next model turn. No precedence: all matching rules apply, in discovery order. Once-per-session dedup keyed by realpath.
 
 ## Hot reload
 
@@ -83,19 +84,19 @@ This package ships a `rule-authoring` skill at `dist/skills/rule-authoring/SKILL
 
 Worked examples:
 
-- `examples/.pi/rules/typescript-style.md` — globs-scoped project rule.
-- `examples/.claude/rules/always-be-terse.md` — `alwaysApply: true` rule.
+- `examples/.pi/rules/typescript-style.md` — path-scoped project rule.
+- `examples/.claude/rules/always-be-terse.md` — always-on rule (no `paths`).
 
 ## Diagnostics
 
-Inside a running pi session, type `/pi-rules doctor` to print a discovery report: every rule with id, source path, globs, and `alwaysApply` flag, plus any parse errors and skipped files. The report header is `pi-rules doctor: OK …` when discovery is clean and `pi-rules doctor: ERRORS …` when any rule failed to parse.
+Inside a running pi session, type `/pi-rules doctor` to print a discovery report: every rule with id, source path, paths, plus any parse errors and skipped files. The report header is `pi-rules doctor: OK …` when discovery is clean and `pi-rules doctor: ERRORS …` when any rule failed to parse.
 
 ## Limitations
 
 - Compaction-survival: if pi-coding-agent compacts the conversation, injected text is dropped. Not re-injected.
 - Once-per-session dedup is by realpath. Two independent files with identical bodies inject twice.
 - No precedence / conflict resolution. All matching rules apply, in input order.
-- Parse errors (invalid YAML, missing `description`, `globs: []` with `alwaysApply: false`) skip the file with a stderr warning. Discovery does not abort.
+- Parse errors (invalid YAML, missing `description`, malformed `paths`) skip the file with a stderr warning. Discovery does not abort.
 - Custom tools (`bash`, `grep`, `find`, `ls`, custom) do not trigger injection. Only `read` / `edit` / `write`.
 
 ## Migrating from `.claude/rules/`
